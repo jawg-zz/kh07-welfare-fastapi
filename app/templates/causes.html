@@ -29,10 +29,15 @@
             </div>
             <span class="text-muted small" style="min-width:3rem">{{ c.progress }}%</span>
         </div>
+        {% else %}
+        {% if not c.active %}<span class="badge badge-inactive">Completed</span>{% endif %}
         {% endif %}
-        <div class="mt-2">
+        <div class="mt-2 d-flex gap-2 flex-wrap">
             <button class="btn btn-outline-accent btn-sm" data-bs-toggle="modal" data-bs-target="#editCauseModal{{ c.id }}"><i class="fas fa-edit me-1"></i>Edit</button>
             <a href="/causes/{{ c.id }}/disburse" class="btn btn-outline-accent btn-sm"><i class="fas fa-money-bill-wave me-1"></i>Disburse</a>
+            <form method="post" action="/causes/{{ c.id }}/archive" style="display:inline">
+                <button type="submit" class="btn btn-outline-accent btn-sm"><i class="fas {% if c.active %}fa-archive{% else %}fa-undo{% endif %} me-1"></i>{% if c.active %}Archive{% else %}Reopen{% endif %}</button>
+            </form>
         </div>
     </div>
 </div>

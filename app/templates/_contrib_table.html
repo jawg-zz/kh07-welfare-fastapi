@@ -9,6 +9,7 @@
     <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
     <td class="pe-3" style="white-space:nowrap">
         <a href="/receipt/{{ c.id }}" class="text-muted small me-1" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a>
+        <a href="/receipt/{{ c.id }}/pdf" class="text-muted small me-1" target="_blank" title="PDF"><i class="fas fa-file-pdf"></i></a>
         <a href="/contributions/{{ c.id }}/edit" class="text-muted small me-1" title="Edit"><i class="fas fa-edit"></i></a>
         <form method="post" action="/contributions/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Delete?')">
             <button type="submit" class="btn btn-link text-muted small p-0" title="Delete"><i class="fas fa-trash-alt"></i></button>

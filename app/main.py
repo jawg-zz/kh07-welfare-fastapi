@@ -227,6 +227,22 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         )).scalar() or 0
         method_data[m] = float(t)
 
+    # Alerts
+    alerts = []
+    # Causes near target (80%+)
+    for c in cause_stats:
+        if c["target"] > 0 and c["progress"] and c["progress"] >= 80:
+            alerts.append({"type": "success" if c["progress"] >= 100 else "warning",
+                          "icon": "trophy" if c["progress"] >= 100 else "chart-line",
+                          "msg": f"<strong>{c['name']}</strong> is {'fully funded' if c['progress'] >= 100 else str(c['progress'])+'% funded'} (KES {c['total']:,.0f} of KES {c['target']:,.0f})"})
+    # Causes with balance (not fully disbursed)
+    for c in cause_stats:
+        if c["total"] > 0:
+            disbursed = float((await db.execute(select(func.coalesce(func.sum(Disbursement.amount), 0)).where(Disbursement.cause_id == c["id"]))).scalar() or 0)
+            if disbursed == 0 and c["total"] > 0:
+                alerts.append({"type": "info", "icon": "money-bill-wave",
+                              "msg": f"<strong>{c['name']}</strong> raised KES {c['total']:,.0f} — no disbursements recorded yet"})
+
     return render("dashboard.html", user=user, request=request,
         stats={"total_members": total_members, "active_members": active_members, "inactive_members": total_members - active_members,
                "total_causes": total_causes, "total_contributions": total_contributions,
@@ -236,7 +252,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         chart_labels=[c["name"][:25] for c in cause_stats],
         chart_data=[c["total"] for c in cause_stats],
         month_labels=month_labels, month_data=month_data,
-        method_data=method_data)
+        method_data=method_data, alerts=alerts)
 
 
 # Members list
@@ -761,6 +777,87 @@ async def annual_report(year: int, request: Request, db: AsyncSession = Depends(
                   contrib_count=contrib_count, member_count=member_count, active_count=active_count,
                   cause_stats=cause_stats, top_members=top_members, total_disbursed=total_disbursed,
                   monthly=monthly, month_labels=month_labels)
+
+
+# ── PDF receipt download ──
+@app.get("/receipt/{contrib_id}/pdf")
+async def receipt_pdf(contrib_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    c = await db.get(Contribution, contrib_id)
+    if not c: raise HTTPException(status_code=404)
+    member = await db.get(Member, c.member_id)
+    cause = await db.get(ContributionCause, c.cause_id)
+    
+    from fpdf import FPDF
+    pdf = FPDF(orientation="P", unit="mm", format=(80, 120))
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=False)
+    
+    pdf.set_fill_color(184, 67, 58)
+    pdf.rect(0, 0, 80, 12, "F")
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_xy(0, 3)
+    pdf.cell(80, 6, "KH07 ALUMNI WELFARE", align="C", ln=True)
+    
+    pdf.set_text_color(40, 40, 40)
+    pdf.set_y(16)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.cell(80, 5, "CONTRIBUTION RECEIPT", align="C", ln=True)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.cell(80, 4, f"Receipt #{c.id}  |  {c.date_paid}", align="C", ln=True)
+    
+    pdf.set_y(28)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(20, 5, "Member:")
+    pdf.set_font("Helvetica", "", 8)
+    pdf.cell(55, 5, member.name, ln=True)
+    
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(20, 5, "Cause:")
+    pdf.set_font("Helvetica", "", 8)
+    pdf.cell(55, 5, cause.name[:40], ln=True)
+    
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(20, 5, "Amount:")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(184, 67, 58)
+    pdf.cell(55, 7, f"KES {float(c.amount):,.0f}", ln=True)
+    
+    pdf.set_text_color(40, 40, 40)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(20, 5, "Method:")
+    pdf.set_font("Helvetica", "", 8)
+    method = c.payment_method.upper() + (f" ({c.transaction_ref})" if c.transaction_ref else "")
+    pdf.cell(55, 5, method, ln=True)
+    
+    if c.notes:
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(20, 5, "Notes:")
+        pdf.set_font("Helvetica", "", 7)
+        pdf.multi_cell(55, 4, c.notes, ln=True)
+    
+    pdf.set_y(95)
+    pdf.set_draw_color(184, 67, 58)
+    pdf.line(5, pdf.get_y(), 75, pdf.get_y())
+    pdf.set_y(98)
+    pdf.set_font("Helvetica", "", 6)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(70, 4, "Thank you for your contribution.", align="C", ln=True)
+    pdf.cell(70, 3, "This is a computer-generated receipt.", align="C")
+    
+    return Response(content=pdf.output("", "S").encode("latin-1"),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=receipt_{contrib_id}.pdf"})
+
+
+# ── Cause archive (toggle active) ──
+@app.post("/causes/{cause_id}/archive")
+async def cause_archive(cause_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause = await db.get(ContributionCause, cause_id)
+    if not cause: raise HTTPException(status_code=404)
+    cause.is_active = not cause.is_active
+    await db.commit()
+    return RedirectResponse(url="/causes", status_code=302)
 
 
 # ── Database backup download ──
