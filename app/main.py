@@ -152,7 +152,7 @@ async def member_create(name: str = Form(...), phone_number: str = Form(""), db:
 
 
 @app.get("/members/{member_id}", response_class=HTMLResponse)
-async def member_detail(member_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+async def member_detail(member_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     member = await db.get(Member, member_id)
     if not member:
         raise HTTPException(status_code=404)
