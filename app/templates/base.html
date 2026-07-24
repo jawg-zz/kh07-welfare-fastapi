@@ -300,7 +300,7 @@
             width: 26px; height: 26px; border-radius: 50%;
             font-weight: 700; font-size: .75rem;
         }
-        .rank-1 { background: linear-gradient(135deg, #F4C97C, #E8B86D); color: #0C0F1A; box-shadow: 0 2px 8px rgba(244,201,124,.3); }
+        .rank-1 { background: linear-gradient(135deg, var(--warning), #E8B86D); color: #0C0F1A; box-shadow: 0 2px 8px rgba(244,201,124,.3); }
         .rank-2 { background: linear-gradient(135deg, #E0E0E0, #B0B0B0); color: #0C0F1A; }
         .rank-3 { background: linear-gradient(135deg, #E8963E, #CD7F32); color: #fff; }
         .rank-o { background: var(--border-light); color: var(--text-muted); }
@@ -337,7 +337,7 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-primary); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #7A5900; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border); }
 
         /* ── Utilities ── */
         .table-responsive-custom { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -428,6 +428,7 @@
             .card-header { font-size: .8rem; }
             .btn-group { gap: .5rem; }
         }
+        @media print { .navbar, .footer, .btn-outline-accent { display: none !important; } }
     </style>
     <!-- v3 -->
     {% block extra_head %}{% endblock %}
