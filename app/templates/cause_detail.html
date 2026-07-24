@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{{ cause.name }} — KH07 Welfare{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="fas fa-hand-holding-heart"></i>{{ cause.name }}</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="stat-card accent">
+            <i class="fas fa-coins icon"></i>
+            <div class="value">KES {{ "{:,.0f}".format(total_raised) }}</div>
+            <div class="label">Total Raised</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="stat-card warning">
+            <i class="fas fa-hand-holding-usd icon"></i>
+            <div class="value">KES {{ "{:,.0f}".format(total_disbursed) }}</div>
+            <div class="label">Disbursed</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="stat-card {% if outstanding > 0 %}info{% else %}success{% endif %}">
+            <i class="fas fa-piggy-bank icon"></i>
+            <div class="value">KES {{ "{:,.0f}".format(outstanding) }}</div>
+            <div class="label">Outstanding</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="stat-card success">
+            <i class="fas fa-users icon"></i>
+            <div class="value">{{ contributor_count }}/{{ total_members }}</div>
+            <div class="label">Members Contributed</div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress & Info -->
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-chart-line me-2" style="color:var(--accent)"></i>Progress</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="small text-muted">Raised: KES {{ "{:,.0f}".format(total_raised) }}</span>
+                    <span class="small text-muted">Target: KES {{ "{:,.0f}".format(target) if target > 0 else 'Not set' }}</span>
+                </div>
+                <div class="progress mb-3" style="height:10px;background:var(--border-light);border-radius:5px;">
+                    <div class="progress-bar {% if progress >= 100 %}bg-success{% endif %}" 
+                         style="width:{{ progress|round|int if progress <= 100 else 100 }}%;border-radius:5px;
+                                background:{% if progress < 100 %}linear-gradient(90deg, var(--accent), var(--warning)){% endif %};">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">{{ contributor_count }} of {{ total_members }} members contributed</span>
+                    {% if non_contributors > 0 %}
+                    <span class="text-muted">{{ non_contributors }} haven't contributed yet</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-info-circle me-2" style="color:var(--info)"></i>Details</div>
+            <div class="card-body">
+                <div class="summary-row">
+                    <span class="text-muted">Status</span>
+                    <span class="badge {% if cause.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+                        {{ 'Active' if cause.is_active else 'Completed' }}
+                    </span>
+                </div>
+                <div class="summary-row">
+                    <span class="text-muted">Target Amount</span>
+                    <span class="fw-bold">KES {{ "{:,.0f}".format(target) if target > 0 else '—' }}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="text-muted">Created</span>
+                    <span>{{ cause.date_created.strftime('%d %b %Y') if cause.date_created else '—' }}</span>
+                </div>
+                {% if total_disbursed > 0 %}
+                <div class="summary-row">
+                    <span class="text-muted">Disbursed to</span>
+                    <a href="/welfare-causes/{{ cause.id }}/disburse" class="small">View disbursements</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Member Contribution Status -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-users me-2" style="color:var(--warning)"></i>Member Contribution Status</span>
+        <span class="small text-muted">{{ contributor_count }} paid · {{ non_contributors }} pending</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive-custom">
+            <table class="table table-hover mb-0">
+                <thead><tr>
+                    <th class="ps-3">#</th>
+                    <th>Name</th>
+                    <th class="text-center">Status</th>
+                    <th class="text-end">Amount</th>
+                    <th class="pe-3">Date</th>
+                </tr></thead>
+                <tbody>
+                    {% for m in member_status %}
+                    <tr>
+                        <td class="ps-3 text-muted">{{ m.member_number }}</td>
+                        <td><a href="/alumni/{{ m.id }}" class="text-decoration-none">{{ m.name }}</a></td>
+                        <td class="text-center">
+                            {% if m.paid %}
+                            <span class="badge badge-active"><i class="fas fa-check me-1"></i>Paid</span>
+                            {% else %}
+                            <span class="badge badge-inactive"><i class="fas fa-times me-1"></i>Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold" style="font-family:monospace;{% if m.paid %}color:var(--success){% else %}color:var(--text-muted){% endif %}">
+                            {% if m.paid %}KES {{ "{:,.0f}".format(m.amount) }}{% else %}—{% endif %}
+                        </td>
+                        <td class="pe-3 text-muted small">{{ m.date_paid if m.paid else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="/welfare-causes" class="text-muted small"><i class="fas fa-arrow-left me-1"></i>Back to Causes</a>
+</div>
+{% endblock %}

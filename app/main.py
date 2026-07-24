@@ -201,6 +201,73 @@ async def portal_suggest_cause(request: Request):
 
 
 @app.post("/self-service/suggest-cause")
+
+
+@app.get("/welfare-causes/{cause_id}", response_class=HTMLResponse)
+async def cause_detail(cause_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause = await db.get(ContributionCause, cause_id)
+    if not cause:
+        return HTMLResponse("Cause not found", status_code=404)
+    
+    # Total raised
+    total_raised = float((await db.execute(
+        select(func.coalesce(func.sum(Contribution.amount), 0))
+        .where(Contribution.cause_id == cause_id))).scalar() or 0)
+    
+    # Total disbursed
+    total_disbursed = float((await db.execute(
+        select(func.coalesce(func.sum(Disbursement.amount), 0))
+        .where(Disbursement.cause_id == cause_id))).scalar() or 0)
+    
+    # Contributor count
+    contributor_count = (await db.execute(
+        select(func.count(func.distinct(Contribution.member_id)))
+        .where(Contribution.cause_id == cause_id))).scalar() or 0
+    
+    # All active members with their contribution status
+    members = await db.execute(
+        select(Member)
+        .where(Member.is_active == True)
+        .order_by(Member.name))
+    members = members.scalars().all()
+    
+    # Get all contributions for this cause
+    contribs = await db.execute(
+        select(Contribution)
+        .where(Contribution.cause_id == cause_id)
+        .options(selectinload(Contribution.member)))
+    contribs = contribs.scalars().all()
+    contrib_map = {c.member_id: c for c in contribs}
+    
+    member_status = []
+    for m in members:
+        c = contrib_map.get(m.id)
+        member_status.append({
+            "id": m.id,
+            "name": m.name,
+            "member_number": m.member_number,
+            "paid": c is not None,
+            "amount": float(c.amount) if c else 0,
+            "date_paid": c.date_paid if c else None,
+            "payment_method": c.payment_method if c else None,
+            "contrib_id": c.id if c else None,
+        })
+    
+    # Stats
+    outstanding = max(0, total_raised - total_disbursed)
+    target = float(cause.target_amount or 0)
+    progress = (total_raised / target * 100) if target > 0 else 0
+    total_members = len(members)
+    non_contributors = total_members - contributor_count
+    
+    return render("cause_detail.html", user=user, request=request, cause=cause,
+                  total_raised=total_raised, total_disbursed=total_disbursed,
+                  outstanding=outstanding, target=target, progress=progress,
+                  contributor_count=contributor_count, total_members=total_members,
+                  non_contributors=non_contributors, member_status=member_status)
+
+
+@app.post("/self-service/suggest-cause")
 async def portal_suggest_submit(request: Request, name: str = Form(...), reason: str = Form(""), db: AsyncSession = Depends(get_db)):
     cause = ContributionCause(name=f"[Suggestion] {name.strip()}", is_active=False)
     db.add(cause)
