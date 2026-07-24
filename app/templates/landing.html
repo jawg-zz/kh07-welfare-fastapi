@@ -287,7 +287,7 @@
             <div class="stat-grid">
                 <div class="stat-box">
                     <div class="value accent">{{ total_members or '—' }}</div>
-                    <div class="label">Members</div>
+                    <div class="label">Alumni</div>
                 </div>
                 <div class="stat-box">
                     <div class="value green">{{ "{:,.0f}".format(total_collected) }}</div>
@@ -295,16 +295,16 @@
                 </div>
                 <div class="stat-box">
                     <div class="value blue">{{ total_causes or '—' }}</div>
-                    <div class="label">Causes</div>
+                    <div class="label">Welfare Causes</div>
                 </div>
                 <div class="stat-box">
                     <div class="value gold">{{ total_contributions or '—' }}</div>
-                    <div class="label">Contributions</div>
+                    <div class="label">Contribution Records</div>
                 </div>
             </div>
 
             <div class="btn-group">
-                <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
+                <a href="/self-service" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
                 <div class="cta-divider"><span>or</span></div>
                 <a href="/login" class="btn btn-secondary-cta"><i class="fas fa-shield-alt me-1"></i>Admin Login</a>
             </div>
@@ -392,7 +392,7 @@
                     <div class="portal-feature"><i class="fas fa-check-circle"></i> Suggest new cause</div>
                 </div>
                 <div class="btn-group" style="margin-bottom:0;margin-top:1.25rem;">
-                    <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
+                    <a href="/self-service" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
                 </div>
             </div>
         </div>
@@ -401,7 +401,7 @@
     <div class="footer">
         <div class="footer-links">
             <a href="/"><i class="fas fa-home"></i> Home</a>
-            <a href="/portal"><i class="fas fa-search"></i> My Contributions</a>
+            <a href="/self-service"><i class="fas fa-search"></i> My Contributions</a>
             <a href="/login"><i class="fas fa-sign-in-alt"></i> Admin</a>
         </div>
         <i class="fas fa-hand-holding-heart me-1"></i> KH07 Alumni Association Welfare System

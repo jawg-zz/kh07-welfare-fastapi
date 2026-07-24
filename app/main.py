@@ -61,7 +61,7 @@ async def check_auth(request: Request):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = ""):
     if get_session_user(request):
-        return RedirectResponse(url="/dashboard", status_code=302)
+        return RedirectResponse(url="/overview", status_code=302)
     return render("login.html", error=error)
 
 
@@ -69,7 +69,7 @@ async def login_page(request: Request, error: str = ""):
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     if username == "admin" and verify_password(password):
         token = create_session(username)
-        resp = RedirectResponse(url="/dashboard", status_code=302)
+        resp = RedirectResponse(url="/overview", status_code=302)
         resp.set_cookie(key=SESSION_COOKIE, value=token, max_age=int(SESSION_MAX_AGE.total_seconds()), httponly=True, samesite="lax")
         return resp
     return render("login.html", error="Invalid username or password")
@@ -87,7 +87,7 @@ async def logout(request: Request):
 async def landing_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = get_session_user(request)
     if user:
-        return RedirectResponse(url="/dashboard", status_code=302)
+        return RedirectResponse(url="/overview", status_code=302)
     total_members = (await db.execute(select(func.count(Member.id)))).scalar() or 0
     total_causes = (await db.execute(select(func.count(ContributionCause.id)).where(ContributionCause.is_active == True))).scalar() or 0
     total_collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)))).scalar() or 0)
@@ -98,12 +98,12 @@ async def landing_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 # ── Member self-service portal ──
-@app.get("/portal", response_class=HTMLResponse)
+@app.get("/self-service", response_class=HTMLResponse)
 async def portal_page(request: Request, db: AsyncSession = Depends(get_db)):
     return render("portal.html", request=request, member=None, contributions=None, total=0, cause_totals={})
 
 
-@app.post("/portal/lookup")
+@app.post("/self-service/lookup")
 async def portal_lookup(request: Request, query: str = Form(""), db: AsyncSession = Depends(get_db)):
     q = query.strip()
     if not q:
@@ -143,7 +143,7 @@ async def portal_lookup(request: Request, query: str = Form(""), db: AsyncSessio
     
     # Show picker if multiple matches
     if members and len(members) > 1:
-        rows = "".join(f'<tr hx-post="/portal/lookup" hx-target="#portal-result" hx-swap="innerHTML" hx-vals=\'{{"query": "{m.name}"}}\' style="cursor:pointer"><td>{m.member_number}</td><td>{m.name}</td></tr>' for m in members)
+        rows = "".join(f'<tr hx-post="/self-service/lookup" hx-target="#portal-result" hx-swap="innerHTML" hx-vals=\'{{"query": "{m.name}"}}\' style="cursor:pointer"><td>{m.member_number}</td><td>{m.name}</td></tr>' for m in members)
         return HTMLResponse(f'''<div class="card"><div class="card-header"><i class="fas fa-users me-2" style="color:var(--warning)"></i>Multiple members found</div>
             <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th class="ps-3">#</th><th>Name</th></tr></thead><tbody>{rows}</tbody></table>
             <div class="p-3 text-center text-muted small">Click the matching member above</div></div></div>''')
@@ -185,7 +185,7 @@ async def portal_lookup(request: Request, query: str = Form(""), db: AsyncSessio
                   total=total, cause_totals=cause_totals, causes=cause_list)
 
 
-@app.post("/portal/update-phone")
+@app.post("/self-service/update-phone")
 async def portal_update_phone(request: Request, member_id: int = Form(...), phone: str = Form(""), db: AsyncSession = Depends(get_db)):
     member = await db.get(Member, member_id)
     if not member:
@@ -195,12 +195,12 @@ async def portal_update_phone(request: Request, member_id: int = Form(...), phon
     return HTMLResponse(f'<div class="alert alert-success"><i class="fas fa-check-circle me-1"></i>Phone updated to <strong>{phone.strip()}</strong></div>')
 
 
-@app.get("/portal/suggest-cause", response_class=HTMLResponse)
+@app.get("/self-service/suggest-cause", response_class=HTMLResponse)
 async def portal_suggest_cause(request: Request):
     return render("portal_suggest.html", request=request)
 
 
-@app.post("/portal/suggest-cause")
+@app.post("/self-service/suggest-cause")
 async def portal_suggest_submit(request: Request, name: str = Form(...), reason: str = Form(""), db: AsyncSession = Depends(get_db)):
     cause = ContributionCause(name=f"[Suggestion] {name.strip()}", is_active=False)
     db.add(cause)
@@ -209,7 +209,7 @@ async def portal_suggest_submit(request: Request, name: str = Form(...), reason:
 
 
 # Dashboard (requires auth)
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/overview", response_class=HTMLResponse)
 async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = get_session_user(request)
     if not user:
@@ -298,7 +298,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 # Members list
-@app.get("/members", response_class=HTMLResponse)
+@app.get("/alumni", response_class=HTMLResponse)
 async def member_list(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     search = request.query_params.get("q", "")
     q = select(Member).where(Member.name.ilike(f"%{search}%")).order_by(Member.member_number) if search else select(Member).order_by(Member.member_number)
@@ -311,20 +311,20 @@ async def member_list(request: Request, db: AsyncSession = Depends(get_db), user
     return render("members.html", user=user, request=request, members=member_data, search=search)
 
 
-@app.get("/members/new", response_class=HTMLResponse)
+@app.get("/alumni/register", response_class=HTMLResponse)
 async def member_new_form(request: Request, user: str = Depends(require_auth)):
     return render("member_form.html", user=user, request=request, member=None)
 
 
-@app.post("/members/new")
+@app.post("/alumni/register")
 async def member_create(name: str = Form(...), phone_number: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     last = (await db.execute(select(func.max(Member.member_number)))).scalar() or 0
     db.add(Member(member_number=last + 1, name=name.strip(), phone_number=phone_number.strip()))
     await db.commit()
-    return RedirectResponse(url="/members", status_code=302)
+    return RedirectResponse(url="/alumni", status_code=302)
 
 
-@app.get("/members/{member_id}", response_class=HTMLResponse)
+@app.get("/alumni/{member_id}", response_class=HTMLResponse)
 async def member_detail(member_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     member = await db.get(Member, member_id)
     if not member:
@@ -335,17 +335,17 @@ async def member_detail(member_id: int, request: Request, db: AsyncSession = Dep
     return render("member_detail.html", user=user, request=request, member=member, contributions=contribs.scalars().all(), total=total, causes=causes, today=date.today().isoformat())
 
 
-@app.post("/members/{member_id}/edit")
+@app.post("/alumni/{member_id}/edit")
 async def member_update(member_id: int, name: str = Form(...), phone_number: str = Form(""), is_active: bool = Form(False), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     member = await db.get(Member, member_id)
     if not member:
         raise HTTPException(status_code=404)
     member.name, member.phone_number, member.is_active = name.strip(), phone_number.strip(), is_active
     await db.commit()
-    return RedirectResponse(url=f"/members/{member_id}", status_code=302)
+    return RedirectResponse(url=f"/alumni/{member_id}", status_code=302)
 
 
-@app.post("/members/{member_id}/add-contribution")
+@app.post("/alumni/{member_id}/add-contribution")
 async def member_add_contribution(member_id: int, cause_id: int = Form(...), amount: float = Form(...),
     payment_method: str = Form("cash"), transaction_ref: str = Form(""),
     date_paid: str = Form(""), notes: str = Form(""),
@@ -360,7 +360,7 @@ async def member_add_contribution(member_id: int, cause_id: int = Form(...), amo
 
 
 # Causes
-@app.get("/causes", response_class=HTMLResponse)
+@app.get("/welfare-causes", response_class=HTMLResponse)
 async def cause_list(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     result = await db.execute(
         select(ContributionCause.id, ContributionCause.name, ContributionCause.target_amount, ContributionCause.is_active,
@@ -376,7 +376,7 @@ async def cause_list(request: Request, db: AsyncSession = Depends(get_db), user:
 
 
 # Contributions
-@app.get("/contributions", response_class=HTMLResponse)
+@app.get("/contribution-records", response_class=HTMLResponse)
 async def contribution_list(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     result = await db.execute(select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause)).order_by(desc(Contribution.date_paid)).limit(200))
     causes = (await db.execute(select(ContributionCause).order_by(ContributionCause.name))).scalars().all()
@@ -384,7 +384,7 @@ async def contribution_list(request: Request, db: AsyncSession = Depends(get_db)
 
 
 # Export CSV
-@app.get("/export/csv")
+@app.get("/exports/csv")
 async def export_csv(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     import csv, io
     result = await db.execute(select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause)).order_by(Contribution.date_paid))
@@ -397,7 +397,7 @@ async def export_csv(request: Request, db: AsyncSession = Depends(get_db), user:
 
 
 # Export Excel
-@app.get("/export/excel")
+@app.get("/exports/excel")
 async def export_excel(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     import openpyxl, io
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -456,7 +456,7 @@ async def export_excel(request: Request, db: AsyncSession = Depends(get_db), use
 
 
 # ── Filtered contributions (HTMX) ──
-@app.get("/contributions/filter", response_class=HTMLResponse)
+@app.get("/contribution-records/filter", response_class=HTMLResponse)
 async def contributions_filtered(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause_id = request.query_params.get("cause_id", "")
     month = request.query_params.get("month", "")
@@ -474,7 +474,7 @@ async def contributions_filtered(request: Request, db: AsyncSession = Depends(ge
 
 
 # ── Member statement ──
-@app.get("/members/{member_id}/statement", response_class=HTMLResponse)
+@app.get("/alumni/{member_id}/statement", response_class=HTMLResponse)
 async def member_statement(member_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     member = await db.get(Member, member_id)
     if not member:
@@ -500,7 +500,7 @@ async def member_statement(member_id: int, request: Request, db: AsyncSession = 
 
 
 # ── Inline edit member name (HTMX) ──
-@app.post("/members/{member_id}/inline-edit")
+@app.post("/alumni/{member_id}/inline-edit")
 async def member_inline_edit(member_id: int, request: Request, field: str = Form(...), value: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     member = await db.get(Member, member_id)
     if not member:
@@ -518,12 +518,12 @@ async def member_inline_edit(member_id: int, request: Request, field: str = Form
 
 
 # ── Import Excel (upload form) ──
-@app.get("/import", response_class=HTMLResponse)
+@app.get("/bulk-upload", response_class=HTMLResponse)
 async def import_form(request: Request, user: str = Depends(require_auth)):
     return render("import.html", user=user, request=request)
 
 
-@app.post("/import", response_class=HTMLResponse)
+@app.post("/bulk-upload", response_class=HTMLResponse)
 async def import_excel(request: Request, file: UploadFile = File(...), user: str = Depends(require_auth)):
     if not file.filename.endswith(('.xlsx', '.xls')):
         return HTMLResponse('<div class="alert alert-danger">Please upload a .xlsx file</div>')
@@ -593,7 +593,7 @@ async def import_excel(request: Request, file: UploadFile = File(...), user: str
 
 
 # ── Cause edit (target amount) ──
-@app.post("/causes/{cause_id}/edit")
+@app.post("/welfare-causes/{cause_id}/edit")
 async def cause_edit(cause_id: int, name: str = Form(...), target_amount: float = Form(0), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause = await db.get(ContributionCause, cause_id)
     if not cause:
@@ -601,11 +601,11 @@ async def cause_edit(cause_id: int, name: str = Form(...), target_amount: float 
     cause.name = name.strip()
     cause.target_amount = target_amount
     await db.commit()
-    return RedirectResponse(url="/causes", status_code=302)
+    return RedirectResponse(url="/welfare-causes", status_code=302)
 
 
 # ── Contribution receipt ──
-@app.get("/receipt/{contrib_id}", response_class=HTMLResponse)
+@app.get("/payment-receipt/{contrib_id}", response_class=HTMLResponse)
 async def contribution_receipt(contrib_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     c = await db.get(Contribution, contrib_id)
     if not c:
@@ -616,7 +616,7 @@ async def contribution_receipt(contrib_id: int, request: Request, db: AsyncSessi
 
 
 # ── Contribution edit ──
-@app.get("/contributions/{contrib_id}/edit", response_class=HTMLResponse)
+@app.get("/contribution-records/{contrib_id}/edit", response_class=HTMLResponse)
 async def contribution_edit_form(contrib_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     c = await db.get(Contribution, contrib_id)
     if not c: raise HTTPException(status_code=404)
@@ -624,7 +624,7 @@ async def contribution_edit_form(contrib_id: int, request: Request, db: AsyncSes
     return render("contrib_edit.html", user=user, request=request, c=c, causes=causes,
                   today=c.date_paid.isoformat())
 
-@app.post("/contributions/{contrib_id}/edit")
+@app.post("/contribution-records/{contrib_id}/edit")
 async def contribution_edit(contrib_id: int, cause_id: int = Form(...), amount: float = Form(...),
     payment_method: str = Form("cash"), transaction_ref: str = Form(""),
     date_paid: str = Form(""), notes: str = Form(""),
@@ -641,7 +641,7 @@ async def contribution_edit(contrib_id: int, cause_id: int = Form(...), amount: 
 
 
 # ── Contribution delete ──
-@app.post("/contributions/{contrib_id}/delete")
+@app.post("/contribution-records/{contrib_id}/delete")
 async def contribution_delete(contrib_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     c = await db.get(Contribution, contrib_id)
     if not c: raise HTTPException(status_code=404)
@@ -652,7 +652,7 @@ async def contribution_delete(contrib_id: int, db: AsyncSession = Depends(get_db
 
 
 # ── Filtered export (HTMX partial for export) ──
-@app.get("/export/filtered/csv")
+@app.get("/exports/filtered-csv")
 async def export_filtered_csv(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause_id = request.query_params.get("cause_id", "")
     month = request.query_params.get("month", "")
@@ -674,7 +674,7 @@ async def export_filtered_csv(request: Request, db: AsyncSession = Depends(get_d
 
 
 # ── Dashboard stats filtered (HTMX partial) ──
-@app.get("/dashboard/stats", response_class=HTMLResponse)
+@app.get("/overview/stats", response_class=HTMLResponse)
 async def dashboard_stats_partial(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     from_date = request.query_params.get("from", "")
     to_date = request.query_params.get("to", "")
@@ -724,7 +724,7 @@ async def dashboard_stats_partial(request: Request, db: AsyncSession = Depends(g
 
 
 # ── Disbursement routes ──
-@app.get("/causes/{cause_id}/disburse", response_class=HTMLResponse)
+@app.get("/welfare-causes/{cause_id}/disburse", response_class=HTMLResponse)
 async def disburse_form(cause_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause = await db.get(ContributionCause, cause_id)
     if not cause: raise HTTPException(status_code=404)
@@ -736,7 +736,7 @@ async def disburse_form(cause_id: int, request: Request, db: AsyncSession = Depe
                   total_disbursed=total_disbursed, balance=total_raised - total_disbursed, disbursements=disbursements, today=today_str)
 
 
-@app.post("/causes/{cause_id}/disburse")
+@app.post("/welfare-causes/{cause_id}/disburse")
 async def disburse_create(cause_id: int, beneficiary_name: str = Form(...), amount: float = Form(...),
     date_disbursed: str = Form(""), notes: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause = await db.get(ContributionCause, cause_id)
@@ -746,7 +746,7 @@ async def disburse_create(cause_id: int, beneficiary_name: str = Form(...), amou
     except: dd = dc.today()
     db.add(Disbursement(cause_id=cause_id, beneficiary_name=beneficiary_name.strip(), amount=amount, date_disbursed=dd, notes=notes))
     await db.commit()
-    return RedirectResponse(url=f"/causes/{cause_id}/disburse", status_code=302)
+    return RedirectResponse(url=f"/welfare-causes/{cause_id}/disburse", status_code=302)
 
 
 # ── Telegram notification (triggered when cause created) ──
@@ -761,7 +761,7 @@ def send_telegram(message: str):
         pass  # silently fail
 
 
-@app.post("/causes/new")
+@app.post("/welfare-causes/new")
 async def cause_create(name: str = Form(...), target_amount: float = Form(0), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause = ContributionCause(name=name.strip(), target_amount=target_amount if target_amount > 0 else None)
     db.add(cause)
@@ -773,11 +773,11 @@ async def cause_create(name: str = Form(...), target_amount: float = Form(0), db
 Target: KES {target_amount:,.0f}
 <a href="https://kh07-welfare.spidmax.win">View Details</a>"""
     send_telegram(msg)
-    return RedirectResponse(url="/causes", status_code=302)
+    return RedirectResponse(url="/welfare-causes", status_code=302)
 
 
 # ── Annual report ──
-@app.get("/report/{year}", response_class=HTMLResponse)
+@app.get("/annual-report/{year}", response_class=HTMLResponse)
 async def annual_report(year: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     from sqlalchemy import extract
     collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0))
@@ -822,7 +822,7 @@ async def annual_report(year: int, request: Request, db: AsyncSession = Depends(
 
 
 # ── PDF receipt download ──
-@app.get("/receipt/{contrib_id}/pdf")
+@app.get("/payment-receipt/{contrib_id}/pdf")
 async def receipt_pdf(contrib_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     c = await db.get(Contribution, contrib_id)
     if not c: raise HTTPException(status_code=404)
@@ -893,17 +893,17 @@ async def receipt_pdf(contrib_id: int, db: AsyncSession = Depends(get_db), user:
 
 
 # ── Cause archive (toggle active) ──
-@app.post("/causes/{cause_id}/archive")
+@app.post("/welfare-causes/{cause_id}/archive")
 async def cause_archive(cause_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause = await db.get(ContributionCause, cause_id)
     if not cause: raise HTTPException(status_code=404)
     cause.is_active = not cause.is_active
     await db.commit()
-    return RedirectResponse(url="/causes", status_code=302)
+    return RedirectResponse(url="/welfare-causes", status_code=302)
 
 
 # ── Database backup download ──
-@app.get("/admin/backup")
+@app.get("/data-backup")
 async def db_backup(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     from app.database import DATABASE_URL
     db_path = DATABASE_URL.replace("sqlite+aiosqlite:///", "")
@@ -932,9 +932,56 @@ class AuditLog:
         return list(reversed(cls._entries[-limit:]))
 
 
-@app.get("/admin/audit", response_class=HTMLResponse)
+@app.get("/activity-log", response_class=HTMLResponse)
 async def audit_page(request: Request, user: str = Depends(require_auth)):
     return render("audit.html", user=user, request=request, entries=AuditLog.recent(100))
+
+
+# ── Old route redirects ──
+_OLD_ROUTES = {
+    "/dashboard": "/overview", "/dashboard/stats": "/overview/stats",
+    "/import": "/bulk-upload",
+    "/members": "/alumni", "/members/new": "/alumni/register",
+    "/causes": "/welfare-causes", "/causes/new": "/welfare-causes/new",
+    "/contributions": "/contribution-records",
+    "/admin/audit": "/activity-log", "/admin/backup": "/data-backup",
+    "/portal": "/self-service", "/portal/lookup": "/self-service/lookup",
+    "/portal/update-phone": "/self-service/update-phone",
+    "/portal/suggest-cause": "/self-service/suggest-cause",
+}
+
+
+@app.middleware("http")
+async def redirect_old_routes(request: Request, call_next):
+    path = request.url.path
+    # Strip trailing slash for matching
+    clean = path.rstrip("/")
+    if clean in _OLD_ROUTES:
+        new_path = _OLD_ROUTES[clean]
+        q = request.url.query
+        url = new_path + (f"?{q}" if q else "")
+        return RedirectResponse(url=url, status_code=301)
+    # Handle /members/{id} -> /alumni/{id}, /causes/{id} -> /welfare-causes/{id}
+    if clean.startswith("/members/"):
+        suffix = clean[9:]
+        return RedirectResponse(url=f"/alumni/{suffix}", status_code=301)
+    if clean.startswith("/causes/") and not clean.startswith("/welfare-causes/"):
+        suffix = clean[8:]
+        return RedirectResponse(url=f"/welfare-causes/{suffix}", status_code=301)
+    if clean.startswith("/receipt/"):
+        suffix = clean[9:]
+        return RedirectResponse(url=f"/payment-receipt/{suffix}", status_code=301)
+    if clean.startswith("/export/") and not clean.startswith("/exports/"):
+        suffix = clean[8:]
+        return RedirectResponse(url=f"/exports/{suffix}", status_code=301)
+    if clean.startswith("/report/"):
+        suffix = clean[8:]
+        return RedirectResponse(url=f"/annual-report/{suffix}", status_code=301)
+    if clean.startswith("/portal/"):
+        suffix = clean[8:]
+        return RedirectResponse(url=f"/self-service/{suffix}", status_code=301)
+    response = await call_next(request)
+    return response
 
 
 # Exception handlers
@@ -947,4 +994,4 @@ async def not_found(request: Request, exc):
 async def server_error(request: Request, exc):
     import traceback
     traceback.print_exc()
-    return RedirectResponse(url="/dashboard")
+    return RedirectResponse(url="/overview")

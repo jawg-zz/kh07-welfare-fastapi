@@ -34,8 +34,8 @@
         {% endif %}
         <div class="mt-2 d-flex gap-2 flex-wrap">
             <button class="btn btn-outline-accent btn-sm" data-bs-toggle="modal" data-bs-target="#editCauseModal{{ c.id }}"><i class="fas fa-edit me-1"></i>Edit</button>
-            <a href="/causes/{{ c.id }}/disburse" class="btn btn-outline-accent btn-sm"><i class="fas fa-money-bill-wave me-1"></i>Disburse</a>
-            <form method="post" action="/causes/{{ c.id }}/archive" style="display:inline">
+            <a href="/welfare-causes/{{ c.id }}/disburse" class="btn btn-outline-accent btn-sm"><i class="fas fa-money-bill-wave me-1"></i>Disburse</a>
+            <form method="post" action="/welfare-causes/{{ c.id }}/archive" style="display:inline">
                 <button type="submit" class="btn btn-outline-accent btn-sm"><i class="fas {% if c.active %}fa-archive{% else %}fa-undo{% endif %} me-1"></i>{% if c.active %}Archive{% else %}Reopen{% endif %}</button>
             </form>
         </div>
@@ -46,7 +46,7 @@
 <div class="modal fade" id="editCauseModal{{ c.id }}" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" action="/causes/{{ c.id }}/edit">
+            <form method="post" action="/welfare-causes/{{ c.id }}/edit">
                 <div class="modal-header"><h6 class="mb-0"><i class="fas fa-edit me-2" style="color:var(--accent)"></i>Edit Cause</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3">
@@ -70,7 +70,7 @@
 <div class="modal fade" id="newCauseModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" action="/causes/new">
+            <form method="post" action="/welfare-causes/new">
                 <div class="modal-header"><h6 class="mb-0"><i class="fas fa-plus-circle me-2" style="color:var(--success)"></i>New Cause</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3">

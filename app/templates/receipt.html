@@ -23,8 +23,8 @@
                 <hr style="border-color:var(--border);">
                 <p class="text-muted small" style="font-size:.75rem;">Thank you for your generous contribution.<br>This is a computer-generated receipt.</p>
                 <button class="btn btn-outline-accent btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Print</button>
-                <a href="/receipt/{{ c.id }}/pdf" class="btn btn-outline-accent btn-sm"><i class="fas fa-file-pdf me-1"></i>Download PDF</a>
-                <a href="/members/{{ c.member_id }}" class="btn btn-outline-accent btn-sm"><i class="fas fa-arrow-left me-1"></i>Back</a>
+                <a href="/payment-receipt/{{ c.id }}/pdf" class="btn btn-outline-accent btn-sm"><i class="fas fa-file-pdf me-1"></i>Download PDF</a>
+                <a href="/alumni/{{ c.member_id }}" class="btn btn-outline-accent btn-sm"><i class="fas fa-arrow-left me-1"></i>Back</a>
             </div>
         </div>
     </div>

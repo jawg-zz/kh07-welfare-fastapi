@@ -6,7 +6,7 @@
 
 <div class="card mb-3">
     <div class="card-body">
-        <form class="row g-2 align-items-end" hx-get="/contributions/filter" hx-target="#contrib-table" hx-trigger="change">
+        <form class="row g-2 align-items-end" hx-get="/contribution-records/filter" hx-target="#contrib-table" hx-trigger="change">
             <div class="col-md-4">
                 <label class="form-label">Cause</label>
                 <select name="cause_id" class="form-select">
@@ -41,7 +41,7 @@
             <div class="col-md-2 d-flex gap-2">
                 <button class="btn btn-accent btn-sm w-100" type="submit"><i class="fas fa-filter me-1"></i>Filter</button>
                 <button class="btn btn-outline-accent btn-sm" type="reset" onclick="this.closest('form').querySelectorAll('select,input').forEach(e=>e.value=''); htmx.trigger('#contrib-table', 'change')"><i class="fas fa-undo"></i></button>
-                <a id="export-filtered-link" href="/export/filtered/csv" class="btn btn-outline-accent btn-sm" title="Export filtered"><i class="fas fa-download"></i></a>
+                <a id="export-filtered-link" href="/exports/filtered/csv" class="btn btn-outline-accent btn-sm" title="Export filtered"><i class="fas fa-download"></i></a>
             </div>
         </form>
     </div>

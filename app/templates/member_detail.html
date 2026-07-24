@@ -18,7 +18,7 @@
                 <hr style="border-color:var(--border)">
                 <div class="row text-center">
                     <div class="col-6"><div class="fw-bold" style="font-family:monospace;font-size:1.2rem;color:var(--accent)">KES {{ "{:,.0f}".format(total) }}</div><small class="text-muted">Total</small></div>
-                    <div class="col-6"><div class="fw-bold" style="font-size:1.2rem">{{ contributions|length }}</div><small class="text-muted">Contributions</small></div>
+                    <div class="col-6"><div class="fw-bold" style="font-size:1.2rem">{{ contributions|length }}</div><small class="text-muted">Contribution Records</small></div>
                 </div>
             </div>
         </div>
@@ -26,7 +26,7 @@
         <div class="card mt-3">
             <div class="card-header">Edit Member</div>
             <div class="card-body">
-                <form method="post" action="/members/{{ member.id }}/edit">
+                <form method="post" action="/alumni/{{ member.id }}/edit">
                     <div class="mb-2">
                         <label class="form-label">Name</label>
                         <input type="text" name="name" class="form-control" value="{{ member.name }}" required>
@@ -50,7 +50,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-coins me-2" style="color:var(--accent)"></i>Contribution History</span>
                 <div class="d-flex gap-2">
-                    <a href="/members/{{ member.id }}/statement" class="btn btn-outline-accent btn-sm"><i class="fas fa-file-alt me-1"></i>Statement</a>
+                    <a href="/alumni/{{ member.id }}/statement" class="btn btn-outline-accent btn-sm"><i class="fas fa-file-alt me-1"></i>Statement</a>
                     <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addContribModal"><i class="fas fa-plus me-1"></i>Record</button>
                 </div>
             </div>
@@ -74,8 +74,8 @@
                             <td><span class="small" style="text-transform:uppercase;">{{ c.payment_method }}</span>{% if c.transaction_ref %}<br><span class="text-muted" style="font-size:.7rem;">{{ c.transaction_ref }}</span>{% endif %}</td>
                             <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
                             <td class="text-end pe-3" style="white-space:nowrap">
-                                <a href="/receipt/{{ c.id }}" class="text-muted small me-2" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a>
-                                <a href="/receipt/{{ c.id }}/pdf" class="text-muted small me-2" target="_blank" title="Download PDF"><i class="fas fa-file-pdf"></i></a>
+                                <a href="/payment-receipt/{{ c.id }}" class="text-muted small me-2" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a>
+                                <a href="/payment-receipt/{{ c.id }}/pdf" class="text-muted small me-2" target="_blank" title="Download PDF"><i class="fas fa-file-pdf"></i></a>
                                 <a href="/contributions/{{ c.id }}/edit" class="text-muted small me-2" title="Edit"><i class="fas fa-edit"></i></a>
                                 <form method="post" action="/contributions/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this contribution?')">
                                     <button type="submit" class="btn btn-link text-muted small p-0" title="Delete"><i class="fas fa-trash-alt"></i></button>
@@ -97,7 +97,7 @@
 <div class="modal fade" id="addContribModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" action="/members/{{ member.id }}/add-contribution">
+            <form method="post" action="/alumni/{{ member.id }}/add-contribution">
                 <div class="modal-header"><h5 class="modal-title">Record Contribution</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3">

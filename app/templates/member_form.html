@@ -7,7 +7,7 @@
         <div class="card">
             <div class="card-header"><i class="fas {% if member %}fa-edit{% else %}fa-user-plus{% endif %} me-2" style="color:var(--accent)"></i>{% if member %}Edit{% else %}Add{% endif %} Member</div>
             <div class="card-body">
-                <form method="post" action="{% if member %}/members/{{ member.id }}/edit{% else %}/members/new{% endif %}">
+                <form method="post" action="{% if member %}/alumni/{{ member.id }}/edit{% else %}/alumni/register{% endif %}">
                     <div class="mb-3">
                         <label class="form-label">Full Name</label>
                         <input type="text" name="name" class="form-control" value="{{ member.name if member else '' }}" required>

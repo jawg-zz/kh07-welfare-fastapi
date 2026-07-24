@@ -40,7 +40,7 @@
 <!-- Quick Actions -->
 <div class="row g-2 mb-4">
     <div class="col-6 col-md-3">
-        <a href="/members/new" class="quick-action">
+        <a href="/alumni/register" class="quick-action">
             <div class="qa-icon accent"><i class="fas fa-user-plus"></i></div>
             <div><div class="qa-label">Add Member</div><div class="qa-sub">New registration</div></div>
         </a>
@@ -52,13 +52,13 @@
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="/import" class="quick-action">
+        <a href="/bulk-upload" class="quick-action">
             <div class="qa-icon info"><i class="fas fa-upload"></i></div>
             <div><div class="qa-label">Import Excel</div><div class="qa-sub">Bulk upload</div></div>
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="/portal" class="quick-action">
+        <a href="/self-service" class="quick-action">
             <div class="qa-icon warning"><i class="fas fa-search"></i></div>
             <div><div class="qa-label">Member Portal</div><div class="qa-sub">Self-service</div></div>
         </a>
@@ -67,7 +67,7 @@
 
 <div class="card mb-4">
     <div class="card-body py-3">
-        <form class="row g-2 align-items-end" hx-get="/dashboard/stats" hx-target="#dashboard-stats" hx-trigger="change, submit" hx-swap="outerHTML">
+        <form class="row g-2 align-items-end" hx-get="/overview/stats" hx-target="#dashboard-stats" hx-trigger="change, submit" hx-swap="outerHTML">
             <div class="col-auto"><label class="form-label">From</label><input type="date" name="from" class="form-control form-control-sm"></div>
             <div class="col-auto"><label class="form-label">To</label><input type="date" name="to" class="form-control form-control-sm"></div>
             <div class="col-auto"><button type="submit" class="btn btn-accent btn-sm"><i class="fas fa-filter me-1"></i>Filter <span class="spinner htmx-indicator"></span></button></div>
@@ -135,7 +135,7 @@
                         {% for m in top_members %}
                         <tr>
                             <td class="ps-3"><span class="rank-badge rank-{% if loop.index == 1 %}1{% elif loop.index == 2 %}2{% elif loop.index == 3 %}3{% else %}o{% endif %}">{{ loop.index }}</span></td>
-                            <td><a href="/members/{{ m.id }}">{{ m.name }}</a></td>
+                            <td><a href="/alumni/{{ m.id }}">{{ m.name }}</a></td>
                             <td class="text-end fw-bold" style="font-family:monospace; color:var(--success)">KES {{ "{:,.0f}".format(m.total) }}</td>
                             <td class="text-end pe-3 text-muted">{{ m.count }}</td>
                         </tr>

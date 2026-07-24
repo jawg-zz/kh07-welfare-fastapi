@@ -5,14 +5,14 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="page-title"><i class="fas fa-file-alt"></i>{{ year }} Annual Report</div>
     <div>
-        {% if year > 2025 %}<a href="/report/{{ year - 1 }}" class="btn btn-outline-accent btn-sm me-1"><i class="fas fa-chevron-left"></i> {{ year - 1 }}</a>{% endif %}
-        <a href="/report/{{ year + 1 }}" class="btn btn-outline-accent btn-sm"><i class="fas fa-chevron-right"></i> {{ year + 1 }}</a>
+        {% if year > 2025 %}<a href="/annual-report/{{ year - 1 }}" class="btn btn-outline-accent btn-sm me-1"><i class="fas fa-chevron-left"></i> {{ year - 1 }}</a>{% endif %}
+        <a href="/annual-report/{{ year + 1 }}" class="btn btn-outline-accent btn-sm"><i class="fas fa-chevron-right"></i> {{ year + 1 }}</a>
     </div>
 </div>
 
 <div class="row g-3 mb-4">
     <div class="col-xl-3 col-md-6"><div class="stat-card accent"><i class="fas fa-coins icon"></i><div class="value">KES {{ "{:,.0f}".format(collected) }}</div><div class="label">Collected in {{ year }}</div></div></div>
-    <div class="col-xl-3 col-md-6"><div class="stat-card info"><i class="fas fa-hand-holding-heart icon"></i><div class="value">{{ contrib_count }}</div><div class="label">Contributions</div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card info"><i class="fas fa-hand-holding-heart icon"></i><div class="value">{{ contrib_count }}</div><div class="label">Contribution Records</div></div></div>
     <div class="col-xl-3 col-md-6"><div class="stat-card success"><i class="fas fa-users icon"></i><div class="value">{{ active_count }}</div><div class="label">Active Members</div></div></div>
     <div class="col-xl-3 col-md-6"><div class="stat-card warning"><i class="fas fa-money-bill-wave icon"></i><div class="value">KES {{ "{:,.0f}".format(total_disbursed) }}</div><div class="label">Disbursed</div></div></div>
 </div>
