@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Contributions — KH07 Welfare{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="fas fa-coins"></i>All Contributions</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr>
+                <th class="ps-3">Date</th>
+                <th>Member</th>
+                <th>Cause</th>
+                <th class="text-end">Amount (KES)</th>
+                <th class="pe-3">Notes</th>
+            </tr></thead>
+            <tbody>
+                {% for c in contributions %}
+                <tr>
+                    <td class="ps-3">{{ c.date_paid }}</td>
+                    <td><a href="/members/{{ c.member.id }}">{{ c.member.name }}</a></td>
+                    <td>{{ c.cause.name }}</td>
+                    <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
+                    <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No contributions recorded</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}KH07 Welfare{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        :root {
+            --bg-primary: #0d0808;
+            --bg-card: #1a1010;
+            --bg-nav: #120a0a;
+            --border: #2d1818;
+            --accent: #b8433a;
+            --accent-hover: #d14d42;
+            --text: #e8d5d0;
+            --text-muted: #8a6f6a;
+            --success: #2d8a4e;
+            --info: #3a7bb8;
+            --warning: #b88a3a;
+        }
+        body {
+            background: var(--bg-primary);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .navbar {
+            background: var(--bg-nav);
+            border-bottom: 1px solid var(--border);
+            padding: .75rem 1.5rem;
+        }
+        .navbar-brand {
+            color: var(--accent) !important;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        .navbar-brand i { margin-right: .5rem; }
+        .nav-link {
+            color: var(--text-muted) !important;
+            padding: .5rem 1rem !important;
+            border-radius: 8px;
+            transition: all .15s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--text) !important;
+            background: rgba(184, 67, 58, .1);
+        }
+        .nav-link i { margin-right: .4rem; width: 1.2rem; text-align: center; }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.3);
+        }
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.25rem;
+            font-weight: 600;
+        }
+        .card-body { padding: 1.25rem; }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: transform .15s, box-shadow .15s;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+        .stat-card .icon {
+            position: absolute; right: 1rem; top: 1rem;
+            font-size: 2rem; opacity: .08;
+        }
+        .stat-card .value {
+            font-size: 1.75rem; font-weight: 700; margin-bottom: .1rem;
+        }
+        .stat-card.accent .value { color: var(--accent); }
+        .stat-card.success .value { color: var(--success); }
+        .stat-card.info .value { color: var(--info); }
+        .stat-card.warning .value { color: var(--warning); }
+        .stat-card .label {
+            color: var(--text-muted); font-size: .8rem;
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .btn-accent {
+            background: var(--accent); border-color: var(--accent); color: #fff;
+        }
+        .btn-accent:hover {
+            background: var(--accent-hover); border-color: var(--accent-hover);
+        }
+        .btn-outline-accent {
+            border-color: var(--accent); color: var(--accent);
+        }
+        .btn-outline-accent:hover {
+            background: var(--accent); color: #fff;
+        }
+        .table { color: var(--text); margin-bottom: 0; }
+        .table th {
+            border-color: var(--border);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: .75rem;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        .table td { border-color: var(--border); vertical-align: middle; }
+        .table tbody tr:hover { background: rgba(184, 67, 58, .03); }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+        .form-control, .form-select {
+            background: #120a0a; border: 1px solid var(--border);
+            color: var(--text); border-radius: 8px;
+        }
+        .form-control:focus, .form-select:focus {
+            background: #120a0a; border-color: var(--accent);
+            box-shadow: 0 0 0 .2rem rgba(184, 67, 58, .2); color: var(--text);
+        }
+        .form-label { font-size: .85rem; color: var(--text-muted); margin-bottom: .3rem; }
+        .badge-active { background: rgba(45, 138, 78, .15); color: var(--success); }
+        .badge-inactive { background: rgba(138, 106, 106, .15); color: var(--text-muted); }
+        .progress-thin { height: 6px; border-radius: 3px; background: #2d1818; }
+        .progress-thin .progress-bar { background: var(--accent); }
+        .rank-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 50%;
+            font-weight: 700; font-size: .75rem;
+        }
+        .rank-1 { background: #f1c40f; color: #0d0808; }
+        .rank-2 { background: #bdc3c7; color: #0d0808; }
+        .rank-3 { background: #e67e22; color: #fff; }
+        .rank-o { background: var(--border); color: var(--text-muted); }
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: .5rem 0; border-bottom: 1px solid var(--border);
+        }
+        .summary-row:last-child { border-bottom: none; }
+        .search-box { background: #120a0a; border: 1px solid var(--border); border-radius: 8px; padding: .5rem 1rem; color: var(--text); }
+        .search-box:focus { border-color: var(--accent); outline: none; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3d2222; }
+        .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 2rem 0; }
+        .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
+        .page-title i { color: var(--accent); margin-right: .6rem; }
+        .modal-content { background: var(--bg-card); border: 1px solid var(--border); }
+        .modal-header { border-color: var(--border); }
+        .modal-footer { border-color: var(--border); }
+        .close-btn { color: var(--text-muted); }
+        .close-btn:hover { color: var(--text); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: .3; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% if user %}
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="fas fa-hand-holding-heart"></i>KH07 Welfare</a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="nav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/"><i class="fas fa-chart-pie"></i>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link {% if '/members' in request.url.path %}active{% endif %}" href="/members"><i class="fas fa-users"></i>Members</a></li>
+                    <li class="nav-item"><a class="nav-link {% if '/causes' in request.url.path %}active{% endif %}" href="/causes"><i class="fas fa-hand-holding-heart"></i>Causes</a></li>
+                    <li class="nav-item"><a class="nav-link {% if '/contributions' in request.url.path %}active{% endif %}" href="/contributions"><i class="fas fa-coins"></i>Contributions</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fas fa-download"></i>Export
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li><a class="dropdown-item" href="/export/csv"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+                            <li><a class="dropdown-item" href="/export/excel"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt"></i></a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <main class="container-fluid px-4 py-3">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <div class="footer">
+        <i class="fas fa-hand-holding-heart me-1"></i> KH07 Alumni Association Welfare System
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

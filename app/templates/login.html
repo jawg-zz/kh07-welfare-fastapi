@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}KH07 Welfare — Login{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body p-4 text-center">
+                <i class="fas fa-hand-holding-heart" style="font-size: 3rem; color: var(--accent); margin-bottom: 1rem;"></i>
+                <h4 class="mb-1">KH07 Welfare</h4>
+                <p class="text-muted small mb-4">Contributions Management System</p>
+                
+                {% if error %}
+                <div class="alert alert-danger py-2 small">{{ error }}</div>
+                {% endif %}
+                
+                <form method="post">
+                    <div class="mb-3 text-start">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" required autofocus>
+                    </div>
+                    <div class="mb-3 text-start">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-accent w-100">Sign In</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
