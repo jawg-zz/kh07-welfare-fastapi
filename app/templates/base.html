@@ -158,6 +158,31 @@
             .card-body { padding: .75rem 1rem; }
             .btn-sm { font-size: .75rem; padding: .25rem .5rem; }
         }
+        /* HTMX loading indicator */
+        .htmx-indicator { opacity: 0; transition: opacity .2s; }
+        .htmx-request .htmx-indicator { opacity: 1; }
+        .htmx-request.htmx-indicator { opacity: 1; }
+        .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Toast notifications */
+        .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: .5rem; }
+        .toast-msg { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .75rem 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,.4); max-width: 360px; animation: slideIn .3s ease; display: flex; align-items: center; gap: .75rem; }
+        .toast-msg.success { border-left: 3px solid var(--success); }
+        .toast-msg.error { border-left: 3px solid var(--accent); }
+        .toast-msg.info { border-left: 3px solid var(--info); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-msg .close { cursor: pointer; opacity: .5; margin-left: auto; }
+        .toast-msg .close:hover { opacity: 1; }
+        /* Table improvements */
+        .table thead { position: sticky; top: 0; z-index: 1; }
+        .table thead th { background: var(--bg-card); }
+        .table-striped tbody tr:nth-child(odd) { background: rgba(255,255,255,.015); }
+        .table tbody tr { transition: background .15s; }
+        .table-hover tbody tr:hover { background: rgba(184,67,58,.06) !important; }
+        /* Smooth transitions */
+        .card { transition: transform .15s, box-shadow .15s; }
+        .stat-card { transition: transform .15s, box-shadow .15s; }
+        .btn { transition: all .15s; }
         .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 2rem 0; }
         .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
         .page-title i { color: var(--accent); margin-right: .6rem; }
@@ -211,6 +236,7 @@
     {% endif %}
     
     <main class="container-fluid px-4 py-3">
+        <div id="toast-container" class="toast-container"></div>
         {% block content %}{% endblock %}
     </main>
     
@@ -219,6 +245,27 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showToast(msg, type) {
+            var c = document.getElementById('toast-container');
+            var t = document.createElement('div');
+            t.className = 'toast-msg ' + (type || 'info');
+            var icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+            t.innerHTML = '<i class="fas fa-' + icon + '" style="color:var(--' + (type === 'success' ? 'success' : type === 'error' ? 'accent' : 'info') + ')"></i><span class="small">' + msg + '</span><span class="close" onclick="this.parentElement.remove()">&times;</span>';
+            c.appendChild(t);
+            setTimeout(function() { if (t.parentElement) t.remove(); }, 4000);
+        }
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            // Check for flash message in response headers
+            var flash = evt.detail.xhr.getResponseHeader('HX-Trigger');
+            if (flash) {
+                try { var data = JSON.parse(flash); if (data.toast) showToast(data.toast.msg, data.toast.type); } catch(e) {}
+            }
+        });
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            showToast('An error occurred', 'error');
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

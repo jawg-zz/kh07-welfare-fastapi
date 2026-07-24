@@ -42,7 +42,7 @@
         <form class="row g-2 align-items-end" hx-get="/dashboard/stats" hx-target="#dashboard-stats" hx-trigger="change, submit" hx-swap="outerHTML">
             <div class="col-auto"><label class="form-label">From</label><input type="date" name="from" class="form-control form-control-sm"></div>
             <div class="col-auto"><label class="form-label">To</label><input type="date" name="to" class="form-control form-control-sm"></div>
-            <div class="col-auto"><button type="submit" class="btn btn-accent btn-sm"><i class="fas fa-filter me-1"></i>Filter</button></div>
+            <div class="col-auto"><button type="submit" class="btn btn-accent btn-sm"><i class="fas fa-filter me-1"></i>Filter <span class="spinner htmx-indicator"></span></button></div>
             <div class="col-auto"><button type="reset" class="btn btn-outline-accent btn-sm" onclick="this.closest('form').querySelectorAll('input').forEach(e=>e.value=''); htmx.trigger('#dashboard-stats', 'change')"><i class="fas fa-undo"></i>Reset</button></div>
         </form>
     </div>
@@ -62,15 +62,15 @@
 {% endif %}
 
 <div class="row g-4">
-    <div class="col-xl-8">
+    <div class="col-xl-7">
         <div class="card">
             <div class="card-header"><i class="fas fa-chart-bar me-2" style="color:var(--accent)"></i>Per-Cause Collections</div>
             <div class="card-body">
-                <canvas id="causeChart" height="200"></canvas>
+                <canvas id="causeChart" height="180"></canvas>
             </div>
         </div>
     </div>
-    <div class="col-xl-4">
+    <div class="col-xl-5">
         <div class="card">
             <div class="card-header"><i class="fas fa-list me-2" style="color:var(--info)"></i>Cause Overview</div>
             <div class="card-body">
