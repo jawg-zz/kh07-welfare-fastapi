@@ -9,43 +9,87 @@
     <style>
         :root {
             --bg: #0d0808;
-            --card: #1a1010;
+            --bg-card: #120a0a;
             --border: #2d1818;
             --accent: #b8433a;
-            --accent-hover: #d14d42;
+            --accent-glow: rgba(184,67,58,.15);
             --text: #e8d5d0;
             --text-muted: #8a6f6a;
             --success: #2d8a4e;
+            --info: #3a7bb8;
+            --warning: #b88a3a;
         }
+        * { box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
-        .navbar { background: #120a0a; border-bottom: 1px solid var(--border); padding: .75rem 1.5rem; }
-        .navbar-brand { color: var(--accent) !important; font-weight: 700; font-size: 1.2rem; }
-        .hero { flex: 1; display: flex; align-items: center; padding: 4rem 2rem; }
-        .hero-content { max-width: 800px; margin: 0 auto; text-align: center; }
-        .hero-icon { font-size: 3.5rem; color: var(--accent); margin-bottom: 1rem; }
-        .hero h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: .5rem; }
-        .hero p { color: var(--text-muted); font-size: 1.1rem; max-width: 500px; margin: 0 auto 2rem; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; max-width: 700px; margin: 0 auto 2.5rem; }
-        .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
-        .stat-box .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-family: monospace; }
-        .stat-box .label { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: .2rem; }
-        .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; padding: .6rem 2rem; border-radius: 8px; font-weight: 600; }
-        .btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
-        .btn-outline-accent { border-color: var(--accent); color: var(--accent); padding: .6rem 2rem; border-radius: 8px; font-weight: 600; }
-        .btn-outline-accent:hover { background: var(--accent); color: #fff; }
-        .btn-outline { border-color: var(--border); color: var(--text-muted); padding: .6rem 2rem; border-radius: 8px; }
-        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-        .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 2rem; border-top: 1px solid var(--border); margin-top: auto; }
-        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 700px; margin: 0 auto; text-align: left; }
-        .feature-item { padding: 1rem; border-radius: 8px; background: var(--card); border: 1px solid var(--border); }
-        .feature-item i { color: var(--accent); margin-right: .5rem; width: 1.2rem; }
-        @media print { .navbar, .footer { display: none; } }
+        .navbar { background: rgba(18,10,10,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: .75rem 1.5rem; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: var(--accent) !important; font-weight: 700; font-size: 1.15rem; letter-spacing: -.3px; }
+        .navbar-brand i { margin-right: .5rem; }
+
+        /* Hero */
+        .hero { flex: 1; display: flex; align-items: center; padding: 3rem 1.5rem; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -40%; right: -20%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(184,67,58,.06), transparent 70%); pointer-events: none; }
+        .hero::after { content: ''; position: absolute; bottom: -30%; left: -10%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(184,67,58,.04), transparent 70%); pointer-events: none; }
+        .hero-content { max-width: 800px; margin: 0 auto; text-align: center; position: relative; z-index: 1; animation: fadeUp .8s ease; }
+        .hero-badge { display: inline-flex; align-items: center; gap: .4rem; background: rgba(184,67,58,.1); border: 1px solid rgba(184,67,58,.2); border-radius: 20px; padding: .3rem .9rem; font-size: .75rem; color: var(--accent); margin-bottom: 1.5rem; }
+        .hero-icon { font-size: 2.8rem; color: var(--accent); margin-bottom: .75rem; }
+        .hero h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: .5rem; letter-spacing: -1px; line-height: 1.1; }
+        .hero h1 span { color: var(--accent); }
+        .hero p { color: var(--text-muted); font-size: 1.1rem; max-width: 520px; margin: 0 auto 2rem; line-height: 1.6; }
+        .accent-bar { width: 40px; height: 3px; background: var(--accent); border-radius: 2px; margin: 1rem auto 1.5rem; }
+
+        /* Stats */
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; max-width: 600px; margin: 0 auto 2rem; }
+        .stat-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem .75rem; transition: transform .2s, border-color .2s; }
+        .stat-box:hover { transform: translateY(-2px); border-color: rgba(184,67,58,.3); }
+        .stat-box .value { font-size: 1.6rem; font-weight: 700; font-family: monospace; line-height: 1.2; }
+        .stat-box .value.accent { color: var(--accent); }
+        .stat-box .value.green { color: var(--success); }
+        .stat-box .value.blue { color: var(--info); }
+        .stat-box .value.gold { color: var(--warning); }
+        .stat-box .label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: .15rem; }
+        @media (max-width: 500px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        /* Buttons */
+        .btn-group { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2.5rem; }
+        .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; padding: .65rem 2rem; border-radius: 10px; font-weight: 600; font-size: .9rem; transition: all .2s; }
+        .btn-accent:hover { background: #d14d42; border-color: #d14d42; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(184,67,58,.3); }
+        .btn-outline-accent { border: 1px solid var(--border); color: var(--text-muted); padding: .65rem 2rem; border-radius: 10px; font-weight: 500; font-size: .9rem; transition: all .2s; background: transparent; }
+        .btn-outline-accent:hover { border-color: var(--accent); color: var(--accent); background: rgba(184,67,58,.05); }
+
+        /* Sections */
+        .section { max-width: 720px; margin: 0 auto 2.5rem; text-align: center; }
+        .section h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: .5rem; }
+        .section p { color: var(--text-muted); font-size: .9rem; line-height: 1.6; }
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
+        .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1rem; text-align: center; }
+        .step-num { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(184,67,58,.1); color: var(--accent); font-weight: 700; font-size: .85rem; margin-bottom: .75rem; }
+        .step h4 { font-size: .9rem; font-weight: 600; margin-bottom: .3rem; }
+        .step p { font-size: .8rem; color: var(--text-muted); margin: 0; }
+        @media (max-width: 500px) { .steps { grid-template-columns: 1fr; } }
+
+        .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; max-width: 500px; margin: 0 auto 2.5rem; text-align: left; }
+        .feature-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); font-size: .85rem; }
+        .feature-item i { color: var(--success); font-size: .8rem; width: 1rem; text-align: center; }
+
+        .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 1.5rem; border-top: 1px solid var(--border); margin-top: auto; }
+        .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: .5rem; flex-wrap: wrap; }
+        .footer-links a { color: var(--text-muted); text-decoration: none; font-size: .8rem; }
+        .footer-links a:hover { color: var(--accent); }
+
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes countUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .stat-box { animation: countUp .6s ease both; }
+        .stat-box:nth-child(1) { animation-delay: .1s; }
+        .stat-box:nth-child(2) { animation-delay: .2s; }
+        .stat-box:nth-child(3) { animation-delay: .3s; }
+        .stat-box:nth-child(4) { animation-delay: .4s; }
+        @media print { .navbar, .footer, .btn-group { display: none; } }
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="container-fluid px-0">
-            <a class="navbar-brand" href="/"><i class="fas fa-hand-holding-heart"></i>KH07 Welfare</a>
+            <a class="navbar-brand" href="/"><i class="fas fa-hand-holding-heart" style="color:var(--accent)"></i>KH07 Welfare</a>
             <div>
                 <a href="/login" class="btn btn-accent btn-sm"><i class="fas fa-sign-in-alt me-1"></i>Admin Login</a>
             </div>
@@ -54,47 +98,75 @@
 
     <section class="hero">
         <div class="hero-content">
+            <div class="hero-badge"><i class="fas fa-heart"></i> Alumni Welfare Initiative</div>
             <div class="hero-icon"><i class="fas fa-hand-holding-heart"></i></div>
-            <h1>KH07 Alumni Welfare</h1>
-            <p>Supporting our community through collective contribution. Transparent, accountable, and built for us.</p>
+            <h1>We rise <span>by lifting</span> each other</h1>
+            <p>KH07 alumni coming together to support our community in times of need. Transparent, accountable, and built for us.</p>
+            <div class="accent-bar"></div>
 
             <div class="stat-grid">
                 <div class="stat-box">
-                    <div class="value">{{ "147" if total_members > 0 else "—" if total_members == 0 else total_members }}</div>
+                    <div class="value accent">{{ total_members or '—' }}</div>
                     <div class="label">Members</div>
-                    <small class="text-muted" style="font-size:.65rem;">{{ active_members }} active</small>
                 </div>
                 <div class="stat-box">
-                    <div class="value" style="color:var(--success)">{{ "{:,.0f}".format(total_collected) if total_collected > 0 else "—" }}</div>
-                    <div class="label">Collected (KES)</div>
+                    <div class="value green">{{ "{:,.0f}".format(total_collected) }}</div>
+                    <div class="label">Raised (KES)</div>
                 </div>
                 <div class="stat-box">
-                    <div class="value" style="color:#3a7bb8">{{ total_causes if total_causes > 0 else "—" }}</div>
+                    <div class="value blue">{{ total_causes or '—' }}</div>
                     <div class="label">Causes</div>
                 </div>
                 <div class="stat-box">
-                    <div class="value" style="color:#b88a3a">{{ total_contributions if total_contributions > 0 else "—" }}</div>
+                    <div class="value gold">{{ total_contributions or '—' }}</div>
                     <div class="label">Contributions</div>
                 </div>
             </div>
 
-            <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <div class="btn-group">
                 <a href="/login" class="btn btn-accent"><i class="fas fa-sign-in-alt me-1"></i>Admin Login</a>
-                <a href="/portal" class="btn btn-outline"><i class="fas fa-search me-1"></i>Check My Contributions</a>
+                <a href="/portal" class="btn btn-outline-accent"><i class="fas fa-search me-1"></i>Check My Contributions</a>
             </div>
 
-            <hr style="border-color:var(--border);max-width:300px;margin:2.5rem auto 1.5rem;">
+            <div class="section">
+                <h3>How It Works</h3>
+                <p class="mb-0">Simple. Transparent. Community-driven.</p>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <h4>A Cause Arises</h4>
+                        <p>When a member faces a need, a welfare cause is opened with a target.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <h4>Members Contribute</h4>
+                        <p>Contribute via cash, M-Pesa, or bank. Every shilling is tracked.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <h4>Funds Disbursed</h4>
+                        <p>Funds go directly to the beneficiary. Full transparency on who got what.</p>
+                    </div>
+                </div>
+            </div>
 
-            <div class="feature-grid">
-                <div class="feature-item"><i class="fas fa-check-circle" style="color:var(--success)"></i>Track every contribution</div>
-                <div class="feature-item"><i class="fas fa-check-circle" style="color:var(--success)"></i>Per-cause progress</div>
-                <div class="feature-item"><i class="fas fa-check-circle" style="color:var(--success)"></i>M-Pesa &amp; bank support</div>
-                <div class="feature-item"><i class="fas fa-check-circle" style="color:var(--success)"></i>Printable receipts</div>
+            <div class="features">
+                <div class="feature-item"><i class="fas fa-check-circle"></i>Track every contribution</div>
+                <div class="feature-item"><i class="fas fa-check-circle"></i>Per-cause progress</div>
+                <div class="feature-item"><i class="fas fa-check-circle"></i>M-Pesa &amp; bank support</div>
+                <div class="feature-item"><i class="fas fa-check-circle"></i>Printable receipts &amp; PDFs</div>
+                <div class="feature-item"><i class="fas fa-check-circle"></i>Self-service portal</div>
+                <div class="feature-item"><i class="fas fa-check-circle"></i>Real-time dashboard</div>
             </div>
         </div>
     </section>
 
     <div class="footer">
+        <div class="footer-links">
+            <a href="/"><i class="fas fa-home"></i> Home</a>
+            <a href="/portal"><i class="fas fa-search"></i> My Contributions</a>
+            <a href="/login"><i class="fas fa-sign-in-alt"></i> Admin</a>
+        </div>
         <i class="fas fa-hand-holding-heart me-1"></i> KH07 Alumni Association Welfare System
     </div>
 </body>
