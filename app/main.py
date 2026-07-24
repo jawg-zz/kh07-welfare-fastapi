@@ -61,7 +61,7 @@ async def check_auth(request: Request):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = ""):
     if get_session_user(request):
-        return RedirectResponse(url="/overview", status_code=302)
+        return RedirectResponse(url="/alumni", status_code=302)
     return render("login.html", error=error)
 
 
@@ -69,7 +69,7 @@ async def login_page(request: Request, error: str = ""):
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     if username == "admin" and verify_password(password):
         token = create_session(username)
-        resp = RedirectResponse(url="/overview", status_code=302)
+        resp = RedirectResponse(url="/alumni", status_code=302)
         resp.set_cookie(key=SESSION_COOKIE, value=token, max_age=int(SESSION_MAX_AGE.total_seconds()), httponly=True, samesite="lax")
         return resp
     return render("login.html", error="Invalid username or password")
@@ -263,8 +263,6 @@ async def cause_detail(cause_id: int, request: Request, db: AsyncSession = Depen
                   contributor_count=contributor_count, total_members=total_members,
                   non_contributors=non_contributors, member_status=member_status)
 
-
-@app.post("/self-service/suggest-cause")
 async def portal_suggest_submit(request: Request, name: str = Form(...), reason: str = Form(""), db: AsyncSession = Depends(get_db)):
     cause = ContributionCause(name=f"[Suggestion] {name.strip()}", is_active=False)
     db.add(cause)
@@ -1053,4 +1051,4 @@ async def not_found(request: Request, exc):
 async def server_error(request: Request, exc):
     import traceback
     traceback.print_exc()
-    return RedirectResponse(url="/overview")
+    return RedirectResponse(url="/alumni")
