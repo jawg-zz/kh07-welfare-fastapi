@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import init_db, get_db
-from app.models import Member, ContributionCause, Contribution
+from app.models import Member, ContributionCause, Contribution, Disbursement
 from app.auth import require_auth, verify_password, create_session, logout_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user
 
 from jinja2 import Environment, FileSystemLoader
@@ -282,13 +282,6 @@ async def cause_list(request: Request, db: AsyncSession = Depends(get_db), user:
         pct = round(float(r.total) / float(r.target_amount) * 100, 1) if r.target_amount and r.target_amount > 0 else None
         causes.append({"id": r.id, "name": r.name, "total": float(r.total), "target": float(r.target_amount) if r.target_amount else 0, "contributors": r.contributors, "active": r.is_active, "progress": pct})
     return render("causes.html", user=user, request=request, causes=causes)
-
-
-@app.post("/causes/new")
-async def cause_create(name: str = Form(...), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
-    db.add(ContributionCause(name=name.strip()))
-    await db.commit()
-    return RedirectResponse(url="/causes", status_code=302)
 
 
 # Contributions
@@ -637,6 +630,103 @@ async def dashboard_stats_partial(request: Request, db: AsyncSession = Depends(g
             <div class="label">Avg per Member</div>
         </div></div>
     </div>""")
+
+
+# ── Disbursement routes ──
+@app.get("/causes/{cause_id}/disburse", response_class=HTMLResponse)
+async def disburse_form(cause_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause = await db.get(ContributionCause, cause_id)
+    if not cause: raise HTTPException(status_code=404)
+    total_raised = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)).where(Contribution.cause_id == cause_id))).scalar() or 0)
+    total_disbursed = float((await db.execute(select(func.coalesce(func.sum(Disbursement.amount), 0)).where(Disbursement.cause_id == cause_id))).scalar() or 0)
+    disbursements = (await db.execute(select(Disbursement).where(Disbursement.cause_id == cause_id).order_by(desc(Disbursement.date_disbursed)))).scalars().all()
+    today_str = date.today().isoformat()
+    return render("disburse.html", user=user, request=request, cause=cause, total_raised=total_raised,
+                  total_disbursed=total_disbursed, balance=total_raised - total_disbursed, disbursements=disbursements, today=today_str)
+
+
+@app.post("/causes/{cause_id}/disburse")
+async def disburse_create(cause_id: int, beneficiary_name: str = Form(...), amount: float = Form(...),
+    date_disbursed: str = Form(""), notes: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause = await db.get(ContributionCause, cause_id)
+    if not cause: raise HTTPException(status_code=404)
+    from datetime import date as dc
+    try: dd = dc.fromisoformat(date_disbursed)
+    except: dd = dc.today()
+    db.add(Disbursement(cause_id=cause_id, beneficiary_name=beneficiary_name.strip(), amount=amount, date_disbursed=dd, notes=notes))
+    await db.commit()
+    return RedirectResponse(url=f"/causes/{cause_id}/disburse", status_code=302)
+
+
+# ── Telegram notification (triggered when cause created) ──
+def send_telegram(message: str):
+    import urllib.request, urllib.parse
+    token = "7605394619:AAEdyytxWLLN6UVT_WFQSkcNgVPom-xFcYI"
+    chat_id = "6760963523"
+    try:
+        data = urllib.parse.urlencode({"chat_id": chat_id, "text": message, "parse_mode": "HTML"}).encode()
+        urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data, timeout=10)
+    except:
+        pass  # silently fail
+
+
+@app.post("/causes/new")
+async def cause_create(name: str = Form(...), target_amount: float = Form(0), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause = ContributionCause(name=name.strip(), target_amount=target_amount if target_amount > 0 else None)
+    db.add(cause)
+    await db.commit()
+    # Send Telegram notification
+    msg = f"""<b>🆕 New Welfare Cause</b>
+<b>{name.strip()}</b>
+Target: KES {target_amount:,.0f}
+<a href="https://kh07-welfare.spidmax.win">View Details</a>"""
+    send_telegram(msg)
+    return RedirectResponse(url="/causes", status_code=302)
+
+
+# ── Annual report ──
+@app.get("/report/{year}", response_class=HTMLResponse)
+async def annual_report(year: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    from sqlalchemy import extract
+    collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0))
+        .where(extract("year", Contribution.date_paid) == year))).scalar() or 0)
+    contrib_count = (await db.execute(select(func.count(Contribution.id))
+        .where(extract("year", Contribution.date_paid) == year))).scalar() or 0
+    member_count = (await db.execute(select(func.count(Member.id)))).scalar() or 0
+    active_count = (await db.execute(select(func.count(Member.id)).where(Member.is_active == True))).scalar() or 0
+    
+    # Per-cause breakdown for the year
+    causes_data = (await db.execute(
+        select(ContributionCause.id, ContributionCause.name, func.coalesce(func.sum(Contribution.amount), 0).label("total"),
+               func.count(Contribution.id).label("count"))
+        .outerjoin(Contribution, (Contribution.cause_id == ContributionCause.id) & (extract("year", Contribution.date_paid) == year))
+        .group_by(ContributionCause.id, ContributionCause.name))).all()
+    cause_stats = [{"name": r.name, "total": float(r.total), "count": r.count} for r in causes_data if r.total > 0]
+    
+    # Top contributors
+    top = (await db.execute(
+        select(Member.name, func.coalesce(func.sum(Contribution.amount), 0).label("total"))
+        .outerjoin(Contribution, (Contribution.member_id == Member.id) & (extract("year", Contribution.date_paid) == year))
+        .group_by(Member.id, Member.name).order_by(desc("total")).limit(10))).all()
+    top_members = [{"name": r.name, "total": float(r.total)} for r in top if r.total > 0]
+    
+    # Disbursements
+    total_disbursed = float((await db.execute(select(func.coalesce(func.sum(Disbursement.amount), 0))
+        .where(extract("year", Disbursement.date_disbursed) == year))).scalar() or 0)
+    
+    monthly = []
+    for m in range(1, 13):
+        t = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0))
+            .where(extract("year", Contribution.date_paid) == year).where(extract("month", Contribution.date_paid) == m))).scalar() or 0)
+        monthly.append(t)
+    
+    from datetime import date as dc
+    month_labels = [dc(year, m, 1).strftime("%b") for m in range(1, 13)]
+    
+    return render("report.html", user=user, request=request, year=year, collected=collected,
+                  contrib_count=contrib_count, member_count=member_count, active_count=active_count,
+                  cause_stats=cause_stats, top_members=top_members, total_disbursed=total_disbursed,
+                  monthly=monthly, month_labels=month_labels)
 
 
 # Exception handlers

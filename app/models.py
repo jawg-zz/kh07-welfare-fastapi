@@ -37,6 +37,7 @@ class ContributionCause(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     contributions: Mapped[list["Contribution"]] = relationship(back_populates="cause", cascade="all, delete-orphan")
+    disbursements: Mapped[list["Disbursement"]] = relationship(back_populates="cause", cascade="all, delete-orphan")
 
     def __repr__(self):
         return self.name
@@ -60,3 +61,20 @@ class Contribution(Base):
 
     def __repr__(self):
         return f"{self.member.name} → {self.cause.name}: KES {self.amount}"
+
+
+class Disbursement(Base):
+    __tablename__ = "disbursements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cause_id: Mapped[int] = mapped_column(ForeignKey("contribution_causes.id", ondelete="CASCADE"), nullable=False, index=True)
+    beneficiary_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(SQLDecimal(10, 2), nullable=False)
+    date_disbursed: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    cause: Mapped["ContributionCause"] = relationship(back_populates="disbursements")
+
+    def __repr__(self):
+        return f"Disburse KES {self.amount} to {self.beneficiary_name}"

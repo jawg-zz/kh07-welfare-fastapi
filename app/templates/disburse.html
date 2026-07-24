@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Disburse — {{ cause.name }}{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a href="/causes" class="text-muted small"><i class="fas fa-arrow-left me-1"></i>Back to Causes</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-hand-holding-heart me-2" style="color:var(--success)"></i>{{ cause.name }}</div>
+            <div class="card-body">
+                <div class="summary-row"><span>Total Raised</span><span class="fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(total_raised) }}</span></div>
+                <div class="summary-row"><span>Total Disbursed</span><span class="fw-bold" style="font-family:monospace;color:var(--accent)">KES {{ "{:,.0f}".format(total_disbursed) }}</span></div>
+                <hr style="border-color:var(--border);">
+                <div class="summary-row fw-bold"><span>Balance</span><span style="font-family:monospace;color:var(--info)">KES {{ "{:,.0f}".format(balance) }}</span></div>
+            </div>
+        </div>
+
+        {% if balance > 0 %}
+        <div class="card mt-3">
+            <div class="card-header"><i class="fas fa-plus-circle me-2" style="color:var(--success)"></i>Record Disbursement</div>
+            <div class="card-body">
+                <form method="post" action="/causes/{{ cause.id }}/disburse">
+                    <div class="mb-3">
+                        <label class="form-label">Beneficiary Name</label>
+                        <input type="text" name="beneficiary_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Amount (KES)</label>
+                        <input type="number" name="amount" class="form-control" step="0.01" min="1" max="{{ balance }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" name="date_disbursed" class="form-control" value="{{ today }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <input type="text" name="notes" class="form-control" placeholder="e.g. Funeral expenses">
+                    </div>
+                    <button type="submit" class="btn btn-accent w-100"><i class="fas fa-check me-1"></i>Record Disbursement</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-history me-2"></i>Disbursement History</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr>
+                        <th class="ps-3">Date</th>
+                        <th>Beneficiary</th>
+                        <th class="text-end">Amount</th>
+                        <th class="pe-3">Notes</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for d in disbursements %}
+                        <tr>
+                            <td class="ps-3">{{ d.date_disbursed }}</td>
+                            <td>{{ d.beneficiary_name }}</td>
+                            <td class="text-end fw-bold" style="font-family:monospace;color:var(--accent)">KES {{ "{:,.0f}".format(d.amount) }}</td>
+                            <td class="pe-3 text-muted small">{{ d.notes or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No disbursements yet</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

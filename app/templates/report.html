@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ year }} Annual Report — KH07 Welfare{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="page-title"><i class="fas fa-file-alt"></i>{{ year }} Annual Report</div>
+    <div>
+        {% if year > 2025 %}<a href="/report/{{ year - 1 }}" class="btn btn-outline-accent btn-sm me-1"><i class="fas fa-chevron-left"></i> {{ year - 1 }}</a>{% endif %}
+        <a href="/report/{{ year + 1 }}" class="btn btn-outline-accent btn-sm"><i class="fas fa-chevron-right"></i> {{ year + 1 }}</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6"><div class="stat-card accent"><i class="fas fa-coins icon"></i><div class="value">KES {{ "{:,.0f}".format(collected) }}</div><div class="label">Collected in {{ year }}</div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card info"><i class="fas fa-hand-holding-heart icon"></i><div class="value">{{ contrib_count }}</div><div class="label">Contributions</div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card success"><i class="fas fa-users icon"></i><div class="value">{{ active_count }}</div><div class="label">Active Members</div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card warning"><i class="fas fa-money-bill-wave icon"></i><div class="value">KES {{ "{:,.0f}".format(total_disbursed) }}</div><div class="label">Disbursed</div></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-7">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-chart-bar me-2" style="color:var(--accent)"></i>Monthly Contributions (KES)</div>
+            <div class="card-body">
+                <canvas id="monthlyChart" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-5">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-list me-2" style="color:var(--info)"></i>Per-Cause Breakdown</div>
+            <div class="card-body">
+                {% for c in cause_stats %}
+                <div class="summary-row"><span>{{ c.name|truncate(30) }}</span><span class="fw-bold" style="font-family:monospace">KES {{ "{:,.0f}".format(c.total) }} <small class="text-muted">({{ c.count }})</small></span></div>
+                {% else %}
+                <div class="text-muted text-center py-3">No contributions this year</div>
+                {% endfor %}
+                <hr style="border-color:var(--border);">
+                <div class="summary-row fw-bold"><span>Total</span><span style="color:var(--accent);font-family:monospace">KES {{ "{:,.0f}".format(collected) }}</span></div>
+            </div>
+        </div>
+        {% if top_members %}
+        <div class="card mt-3">
+            <div class="card-header"><i class="fas fa-trophy me-2" style="color:var(--warning)"></i>Top Contributors</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th class="ps-3">#</th><th>Name</th><th class="text-end pe-3">Total</th></tr></thead>
+                    <tbody>
+                        {% for m in top_members %}
+                        <tr><td class="ps-3">{{ loop.index }}</td><td>{{ m.name }}</td><td class="text-end pe-3 fw-bold" style="font-family:monospace">KES {{ "{:,.0f}".format(m.total) }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var ctx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ month_labels|safe }},
+            datasets: [{
+                label: 'KES',
+                data: {{ monthly|safe }},
+                backgroundColor: 'rgba(184,67,58,.7)',
+                borderColor: '#b8433a',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return 'KES ' + ctx.parsed.y.toLocaleString(); } } } },
+            scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return 'KES ' + v.toLocaleString(); }, color: '#8a6f6a' }, grid: { color: 'rgba(45,24,24,.5)' } }, x: { ticks: { color: '#8a6f6a' }, grid: { display: false } } }
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
