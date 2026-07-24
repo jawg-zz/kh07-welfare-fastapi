@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
