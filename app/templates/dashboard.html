@@ -2,7 +2,7 @@
 {% block title %}Dashboard — KH07 Welfare{% endblock %}
 {% block content %}
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4" id="dashboard-stats">
     <div class="col-xl-3 col-md-6">
         <div class="stat-card accent">
             <i class="fas fa-users icon"></i>
@@ -34,6 +34,17 @@
             <div class="label">Avg Per Cause</div>
             <small class="text-muted">Across {{ stats.total_causes }} causes</small>
         </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <form class="row g-2 align-items-end" hx-get="/dashboard/stats" hx-target="#dashboard-stats" hx-trigger="change, submit" hx-swap="outerHTML">
+            <div class="col-auto"><label class="form-label">From</label><input type="date" name="from" class="form-control form-control-sm"></div>
+            <div class="col-auto"><label class="form-label">To</label><input type="date" name="to" class="form-control form-control-sm"></div>
+            <div class="col-auto"><button type="submit" class="btn btn-accent btn-sm"><i class="fas fa-filter me-1"></i>Filter</button></div>
+            <div class="col-auto"><button type="reset" class="btn btn-outline-accent btn-sm" onclick="this.closest('form').querySelectorAll('input').forEach(e=>e.value=''); htmx.trigger('#dashboard-stats', 'change')"><i class="fas fa-undo"></i>Reset</button></div>
+        </form>
     </div>
 </div>
 

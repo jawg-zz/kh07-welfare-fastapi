@@ -72,7 +72,13 @@
                             <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
                             <td><span class="small" style="text-transform:uppercase;">{{ c.payment_method }}</span>{% if c.transaction_ref %}<br><span class="text-muted" style="font-size:.7rem;">{{ c.transaction_ref }}</span>{% endif %}</td>
                             <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
-                            <td class="text-end pe-3"><a href="/receipt/{{ c.id }}" class="text-muted small" target="_blank"><i class="fas fa-receipt"></i></a></td>
+                            <td class="text-end pe-3" style="white-space:nowrap">
+                                <a href="/receipt/{{ c.id }}" class="text-muted small me-2" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a>
+                                <a href="/contributions/{{ c.id }}/edit" class="text-muted small me-2" title="Edit"><i class="fas fa-edit"></i></a>
+                                <form method="post" action="/contributions/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this contribution?')">
+                                    <button type="submit" class="btn btn-link text-muted small p-0" title="Delete"><i class="fas fa-trash-alt"></i></button>
+                                </form>
+                            </td>
                         </tr>
                         {% else %}
                         <tr><td colspan="6" class="text-center text-muted py-4">No contributions recorded</td></tr>

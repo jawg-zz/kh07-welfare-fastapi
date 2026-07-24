@@ -480,6 +480,114 @@ async def contribution_receipt(contrib_id: int, request: Request, db: AsyncSessi
     return render("receipt.html", user=user, request=request, c=c, member=member, cause=cause)
 
 
+# ── Contribution edit ──
+@app.get("/contributions/{contrib_id}/edit", response_class=HTMLResponse)
+async def contribution_edit_form(contrib_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    c = await db.get(Contribution, contrib_id)
+    if not c: raise HTTPException(status_code=404)
+    causes = (await db.execute(select(ContributionCause).order_by(ContributionCause.name))).scalars().all()
+    return render("contrib_edit.html", user=user, request=request, c=c, causes=causes,
+                  today=c.date_paid.isoformat())
+
+@app.post("/contributions/{contrib_id}/edit")
+async def contribution_edit(contrib_id: int, cause_id: int = Form(...), amount: float = Form(...),
+    payment_method: str = Form("cash"), transaction_ref: str = Form(""),
+    date_paid: str = Form(""), notes: str = Form(""),
+    db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    c = await db.get(Contribution, contrib_id)
+    if not c: raise HTTPException(status_code=404)
+    from datetime import date as dc
+    c.cause_id = cause_id; c.amount = amount; c.payment_method = payment_method
+    c.transaction_ref = transaction_ref; c.notes = notes
+    try: c.date_paid = dc.fromisoformat(date_paid)
+    except: pass
+    await db.commit()
+    return RedirectResponse(url=f"/members/{c.member_id}", status_code=302)
+
+
+# ── Contribution delete ──
+@app.post("/contributions/{contrib_id}/delete")
+async def contribution_delete(contrib_id: int, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    c = await db.get(Contribution, contrib_id)
+    if not c: raise HTTPException(status_code=404)
+    mid = c.member_id
+    await db.delete(c)
+    await db.commit()
+    return RedirectResponse(url=f"/members/{mid}", status_code=302)
+
+
+# ── Filtered export (HTMX partial for export) ──
+@app.get("/export/filtered/csv")
+async def export_filtered_csv(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause_id = request.query_params.get("cause_id", "")
+    month = request.query_params.get("month", "")
+    q = select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause))
+    if cause_id and cause_id.isdigit(): q = q.where(Contribution.cause_id == int(cause_id))
+    if month and month.isdigit():
+        from sqlalchemy import extract
+        q = q.where(extract("month", Contribution.date_paid) == int(month))
+    contributions = (await db.execute(q.order_by(Contribution.date_paid))).scalars().all()
+    
+    import csv, io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Date", "Member", "Cause", "Amount (KES)", "Method", "Ref", "Notes"])
+    for c in contributions:
+        w.writerow([c.date_paid.isoformat(), c.member.name, c.cause.name, float(c.amount), c.payment_method, c.transaction_ref, c.notes])
+    return Response(content=buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=kh07_filtered_contributions.csv"})
+
+
+# ── Dashboard stats filtered (HTMX partial) ──
+@app.get("/dashboard/stats", response_class=HTMLResponse)
+async def dashboard_stats_partial(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    from_date = request.query_params.get("from", "")
+    to_date = request.query_params.get("to", "")
+    from datetime import date as dc
+    
+    try: fd = dc.fromisoformat(from_date) if from_date else None
+    except: fd = None
+    try: td = dc.fromisoformat(to_date) if to_date else None
+    except: td = None
+    
+    base_q = select(func.coalesce(func.sum(Contribution.amount), 0))
+    if fd: base_q = base_q.where(Contribution.date_paid >= fd)
+    if td: base_q = base_q.where(Contribution.date_paid <= td)
+    
+    total_collected = float((await db.execute(base_q)).scalar() or 0)
+    
+    total_members_q = select(func.count(Member.id))
+    total_members = (await db.execute(total_members_q)).scalar() or 0
+    
+    cnt_q = select(func.count(Contribution.id))
+    if fd: cnt_q = cnt_q.where(Contribution.date_paid >= fd)
+    if td: cnt_q = cnt_q.where(Contribution.date_paid <= td)
+    total_contributions = (await db.execute(cnt_q)).scalar() or 0
+    
+    return HTMLResponse(f"""<div class="row g-3 mb-4" id="dashboard-stats">
+        <div class="col-xl-3 col-md-6"><div class="stat-card accent">
+            <i class="fas fa-users icon"></i>
+            <div class="value">{total_members}</div>
+            <div class="label">Total Members</div>
+        </div></div>
+        <div class="col-xl-3 col-md-6"><div class="stat-card success">
+            <i class="fas fa-coins icon"></i>
+            <div class="value">KES {"{:,.0f}".format(total_collected)}</div>
+            <div class="label">Total Collected</div>
+        </div></div>
+        <div class="col-xl-3 col-md-6"><div class="stat-card info">
+            <i class="fas fa-hand-holding-heart icon"></i>
+            <div class="value">{total_contributions}</div>
+            <div class="label">Contributions</div>
+        </div></div>
+        <div class="col-xl-3 col-md-6"><div class="stat-card warning">
+            <i class="fas fa-chart-line icon"></i>
+            <div class="value">KES {"{:,.0f}".format(round(total_collected / total_members, 0)) if total_members else 0}</div>
+            <div class="label">Avg per Member</div>
+        </div></div>
+    </div>""")
+
+
 # Exception handlers
 @app.exception_handler(404)
 async def not_found(request: Request, exc):

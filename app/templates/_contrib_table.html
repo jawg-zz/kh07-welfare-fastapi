@@ -7,7 +7,13 @@
     <td class="text-center"><span class="badge {% if c.payment_method == 'mpesa' %}badge-active{% elif c.payment_method == 'bank' %}" style="background:rgba(58,123,184,.15);color:var(--info);{% else %}" style="background:rgba(184,138,58,.15);color:var(--warning);{% endif %}">{{ c.payment_method|upper }}</span></td>
     <td class="text-muted small">{{ c.transaction_ref or '—' }}</td>
     <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
-    <td class="pe-3"><a href="/receipt/{{ c.id }}" class="text-muted small" target="_blank"><i class="fas fa-receipt"></i></a></td>
+    <td class="pe-3" style="white-space:nowrap">
+        <a href="/receipt/{{ c.id }}" class="text-muted small me-1" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a>
+        <a href="/contributions/{{ c.id }}/edit" class="text-muted small me-1" title="Edit"><i class="fas fa-edit"></i></a>
+        <form method="post" action="/contributions/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Delete?')">
+            <button type="submit" class="btn btn-link text-muted small p-0" title="Delete"><i class="fas fa-trash-alt"></i></button>
+        </form>
+    </td>
 </tr>
 {% else %}
 <tr><td colspan="8" class="text-center text-muted py-4">No contributions found</td></tr>
