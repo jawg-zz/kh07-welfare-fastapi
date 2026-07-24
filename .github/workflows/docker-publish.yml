@@ -60,3 +60,25 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Deploy to Dokploy
+        env:
+          DOKPLOY_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_URL: "https://main.spidmax.win"
+          APP_ID: "SiE7JonqrO0FV0kbQF1xv"
+        run: |
+          # Stop, set image, deploy, start
+          curl -s -X POST "$DOKPLOY_URL/api/trpc/application.stop?batch=1" \
+            -H "x-api-key: $DOKPLOY_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\"}}}" > /dev/null
+          sleep 5
+          curl -s -X POST "$DOKPLOY_URL/api/trpc/application.deploy?batch=1" \
+            -H "x-api-key: $DOKPLOY_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\",\"cleanCache\":true}}}" > /dev/null
+          sleep 60
+          curl -s -X POST "$DOKPLOY_URL/api/trpc/application.start?batch=1" \
+            -H "x-api-key: $DOKPLOY_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\"}}}" > /dev/null
