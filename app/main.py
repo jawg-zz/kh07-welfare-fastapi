@@ -845,7 +845,7 @@ async def receipt_pdf(contrib_id: int, db: AsyncSession = Depends(get_db), user:
     pdf.cell(70, 4, "Thank you for your contribution.", align="C", ln=True)
     pdf.cell(70, 3, "This is a computer-generated receipt.", align="C")
     
-    return Response(content=pdf.output("", "S").encode("latin-1"),
+    return Response(content=bytes(pdf.output("", dest="S")),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=receipt_{contrib_id}.pdf"})
 
