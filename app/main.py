@@ -85,37 +85,13 @@ async def logout(request: Request):
 # Landing page (public)
 @app.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request, db: AsyncSession = Depends(get_db)):
-    user = get_session_user(request)
-    if user:
-        return RedirectResponse(url="/overview", status_code=302)
     total_members = (await db.execute(select(func.count(Member.id)))).scalar() or 0
     total_causes = (await db.execute(select(func.count(ContributionCause.id)).where(ContributionCause.is_active == True))).scalar() or 0
     total_collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)))).scalar() or 0)
     total_contributions = (await db.execute(select(func.count(Contribution.id)))).scalar() or 0
-    active_members = (await db.execute(select(func.count(Member.id)).where(Member.is_active == True))).scalar() or 0
-    
-    # Active causes with progress
-    active_causes = (await db.execute(
-        select(ContributionCause, func.coalesce(func.sum(Contribution.amount), 0).label("raised"))
-        .outerjoin(Contribution, ContributionCause.id == Contribution.cause_id)
-        .where(ContributionCause.is_active == True)
-        .group_by(ContributionCause.id)
-        .order_by(ContributionCause.name)
-    )).all()
-    cause_list = []
-    for cause, raised in active_causes:
-        target = float(cause.target_amount or 0)
-        cause_list.append({"name": cause.name, "raised": float(raised), "target": target})
-    
-    # Recent contributions
-    recent = (await db.execute(
-        select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause))
-        .order_by(desc(Contribution.date_paid)).limit(5))
-    ).scalars().all()
-    
-    return render("landing.html", request=request, total_members=total_members, total_causes=total_causes,
-                  total_collected=total_collected, total_contributions=total_contributions,
-                  active_members=active_members, active_causes=cause_list, recent_contribs=recent)
+    return render("landing.html", request=request,
+                  total_members=total_members, total_causes=total_causes,
+                  total_collected=total_collected, total_contributions=total_contributions)
 
 
 # ── Member self-service portal ──
