@@ -9,13 +9,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
-        :root {
+        /* ── Dark Theme (default) ── */
+        [data-theme="dark"] {
             --bg-primary: #051A0E;
             --bg-card: #0A2E1A;
             --bg-nav: #071A0F;
+            --bg-elevated: #0F3D24;
             --border: #5C4200;
+            --border-light: rgba(92,66,0,.25);
             --accent: #A81218;
             --accent-hover: #CC161E;
+            --accent-bg: rgba(168,18,24,.08);
             --text: #FDFBF7;
             --text-muted: #AD8A40;
             --success: #2D8A4E;
@@ -24,22 +28,46 @@
             --info-bg: rgba(58,123,184,.12);
             --warning: #FFC700;
             --warning-bg: rgba(255,199,0,.1);
-            --accent-bg: rgba(168,18,24,.08);
-            --shadow: 0 2px 16px rgba(0,0,0,.35);
-            --shadow-lg: 0 6px 30px rgba(0,0,0,.45);
-            --radius: 12px;
-            --radius-sm: 8px;
+            --shadow: 0 2px 16px rgba(0,0,0,.4);
+            --shadow-lg: 0 6px 30px rgba(0,0,0,.5);
+            --body-bg: #051A0E;
+            --nav-bg: rgba(7,26,15,.85);
+        }
+        /* ── Light Theme ── */
+        [data-theme="light"] {
+            --bg-primary: #FDFBF7;
+            --bg-card: #FFFFFF;
+            --bg-nav: #F5F0E8;
+            --bg-elevated: #FAF7F0;
+            --border: #D4C5A0;
+            --border-light: rgba(212,197,160,.4);
+            --accent: #A81218;
+            --accent-hover: #8C0F14;
+            --accent-bg: rgba(168,18,24,.06);
+            --text: #081C11;
+            --text-muted: #8A7A50;
+            --success: #1E7A3D;
+            --success-bg: rgba(30,122,61,.08);
+            --info: #2D6BA0;
+            --info-bg: rgba(45,107,160,.08);
+            --warning: #B8860B;
+            --warning-bg: rgba(184,134,11,.08);
+            --shadow: 0 2px 16px rgba(0,0,0,.08);
+            --shadow-lg: 0 6px 30px rgba(0,0,0,.12);
+            --body-bg: #FDFBF7;
+            --nav-bg: rgba(245,240,232,.85);
         }
         * { box-sizing: border-box; }
+        html { background: var(--body-bg); }
         body {
-            background: var(--bg-primary);
+            background: var(--body-bg);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         /* ── Navbar ── */
         .navbar {
-            background: rgba(7,26,15,.85);
+            background: var(--nav-bg);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--border);
@@ -157,7 +185,7 @@
         .table { color: var(--text); margin-bottom: 0; }
         .table thead { position: sticky; top: 0; z-index: 1; }
         .table thead th {
-            background: #071A0F;
+            background: var(--bg-nav);
             border-color: var(--border);
             color: var(--warning);
             font-weight: 600;
@@ -176,12 +204,12 @@
 
         /* ── Forms ── */
         .form-control, .form-select {
-            background: #071A0F; border: 1px solid var(--border);
+            background: var(--bg-nav); border: 1px solid var(--border);
             color: var(--text); border-radius: var(--radius-sm);
             transition: border-color .2s, box-shadow .2s;
         }
         .form-control:focus, .form-select:focus {
-            background: #071A0F; border-color: var(--accent);
+            background: var(--bg-nav); border-color: var(--accent);
             box-shadow: 0 0 0 .2rem rgba(168,18,24,.2); color: var(--text);
         }
         .form-control::placeholder { color: rgba(173,138,64,.4); }
@@ -230,7 +258,7 @@
         .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 2rem 0; }
 
         /* ── Search box ── */
-        .search-box { background: #071A0F; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem 1rem; color: var(--text); }
+        .search-box { background: var(--bg-nav); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem 1rem; color: var(--text); }
         .search-box:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 .2rem rgba(168,18,24,.15); }
 
         /* ── Modal ── */
@@ -350,6 +378,7 @@
                     </li>
                     <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt"></i></a></li>
                 </ul>
+                <button id="theme-toggle" class="btn btn-sm ms-2" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:.35rem .6rem;" onclick="toggleTheme()" title="Toggle theme"><i class="fas fa-moon"></i></button>
             </div>
         </div>
     </nav>
@@ -366,6 +395,25 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Theme toggle
+        (function() {
+            var theme = localStorage.getItem('kh07-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            var btn = document.getElementById('theme-toggle');
+            if (btn) btn.innerHTML = '<i class="fas fa-' + (theme === 'dark' ? 'moon' : 'sun') + '"></i>';
+        })();
+        function toggleTheme() {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme') || 'dark';
+            var next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('kh07-theme', next);
+            var btn = document.getElementById('theme-toggle');
+            if (btn) btn.innerHTML = '<i class="fas fa-' + (next === 'dark' ? 'moon' : 'sun') + '"></i>';
+            // Notify HTMX to re-process
+            document.body.dispatchEvent(new Event('htmx:afterSettle'));
+        }
+        // Toast helper
         function showToast(msg, type) {
             var c = document.getElementById('toast-container');
             var t = document.createElement('div');
