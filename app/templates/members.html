@@ -15,6 +15,7 @@
             <input type="text" name="q" class="search-box w-100" placeholder="Search by name..." value="{{ search }}" hx-get="/members" hx-trigger="keyup changed delay:300ms" hx-target="#member-table" hx-select="#member-table" hx-swap="outerHTML">
         </form>
         <div id="member-table">
+        <div class="table-responsive-custom">
         <table class="table table-hover">
             <thead><tr>
                 <th>#</th>
@@ -41,6 +42,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         </div>
     </div>
 </div>
