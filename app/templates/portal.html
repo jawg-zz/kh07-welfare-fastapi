@@ -33,26 +33,27 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <i class="fas fa-phone" style="color:var(--accent);width:1.2rem"></i>
-                                <span id="phone-display">{{ member.phone_number or 'Not set' }}</span>
-                                <button class="btn btn-link btn-sm p-0 text-muted" onclick="document.getElementById('phone-form').classList.toggle('d-none'); this.classList.toggle('d-none')"><i class="fas fa-edit"></i></button>
-                            </div>
-                            <form id="phone-form" class="d-none row g-1" hx-post="/portal/update-phone" hx-target="#phone-result" hx-swap="innerHTML">
-                                <input type="hidden" name="member_id" value="{{ member.id }}">
-                                <div class="col-8">
-                                    <input type="text" name="phone" class="form-control form-control-sm" placeholder="New phone number" value="{{ member.phone_number or '' }}">
-                                </div>
-                                <div class="col-4">
-                                    <button type="submit" class="btn btn-accent btn-sm w-100">Save</button>
-                                </div>
-                                <div id="phone-result" class="col-12"></div>
-                            </form>
+                            <div class="small text-muted">Member Number</div>
+                            <div class="fw-bold">#{{ member.member_number }}</div>
                         </div>
                         <div class="col-md-6 text-md-end">
                             <div class="small text-muted">Total Contributed</div>
                             <div class="fw-bold" style="font-size:1.3rem;color:var(--accent);font-family:monospace">KES {{ "{:,.0f}".format(total) }}</div>
                         </div>
+                    </div>
+                    <!-- Phone update — user can update their own number -->
+                    <div class="mt-2 pt-2" style="border-top:1px solid var(--border-light)">
+                        <form class="row g-1 align-items-end" hx-post="/portal/update-phone" hx-target="#phone-result" hx-swap="innerHTML">
+                            <input type="hidden" name="member_id" value="{{ member.id }}">
+                            <div class="col-auto"><label class="form-label mb-0 small text-muted">Phone</label></div>
+                            <div class="col-5">
+                                <input type="text" name="phone" class="form-control form-control-sm" placeholder="Your phone number" value="{{ member.phone_number or '' }}">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-accent btn-sm"><i class="fas fa-save me-1"></i>Update</button>
+                            </div>
+                            <div id="phone-result" class="col-12 mt-1"></div>
+                        </form>
                     </div>
                 </div>
             </div>

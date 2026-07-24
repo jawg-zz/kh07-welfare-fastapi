@@ -143,9 +143,9 @@ async def portal_lookup(request: Request, query: str = Form(""), db: AsyncSessio
     
     # Show picker if multiple matches
     if members and len(members) > 1:
-        rows = "".join(f'<tr hx-post="/portal/lookup" hx-target="#portal-result" hx-swap="innerHTML" hx-vals=\'{{"query": "{m.name}"}}\' style="cursor:pointer"><td>{m.member_number}</td><td>{m.name}</td><td>{m.phone_number or "—"}</td></tr>' for m in members)
+        rows = "".join(f'<tr hx-post="/portal/lookup" hx-target="#portal-result" hx-swap="innerHTML" hx-vals=\'{{"query": "{m.name}"}}\' style="cursor:pointer"><td>{m.member_number}</td><td>{m.name}</td></tr>' for m in members)
         return HTMLResponse(f'''<div class="card"><div class="card-header"><i class="fas fa-users me-2" style="color:var(--warning)"></i>Multiple members found</div>
-            <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th class="ps-3">#</th><th>Name</th><th>Phone</th></tr></thead><tbody>{rows}</tbody></table>
+            <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th class="ps-3">#</th><th>Name</th></tr></thead><tbody>{rows}</tbody></table>
             <div class="p-3 text-center text-muted small">Click the matching member above</div></div></div>''')
     
     if not member and members:
