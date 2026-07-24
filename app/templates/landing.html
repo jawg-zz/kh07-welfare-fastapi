@@ -12,7 +12,7 @@
             --bg-card: #161B28;
             --border: #252B3D;
             --accent: #E8826C;
-            --accent-glow: rgba(232,130,108,.12);
+            --accent-glow: rgba(232,130,108,.15);
             --text: #EDE8E0;
             --text-muted: #7C8196;
             --success: #5DBB8A;
@@ -24,7 +24,7 @@
             --bg-card: #FFFFFF;
             --border: #C9BFA8;
             --accent: #D47058;
-            --accent-glow: rgba(212,112,88,.12);
+            --accent-glow: rgba(212,112,88,.1);
             --text: #1A1614;
             --text-muted: #6B635C;
             --success: #4AA87A;
@@ -32,109 +32,227 @@
             --warning: #C49B45;
         }
         * { box-sizing: border-box; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
-        .navbar { background: rgba(18,10,10,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: .75rem 1.5rem; position: sticky; top: 0; z-index: 100; }
-        .navbar-brand { color: var(--accent) !important; font-weight: 700; font-size: 1.15rem; letter-spacing: -.3px; }
-        .navbar-brand i { margin-right: .5rem; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh; display: flex; flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+        }
 
-        /* Hero */
-        .hero { flex: 1; display: flex; align-items: center; padding: 3rem 1.5rem; position: relative; overflow: hidden; }
-        .hero::before { content: ''; position: absolute; top: -40%; right: -20%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(184,67,58,.06), transparent 70%); pointer-events: none; }
-        .hero::after { content: ''; position: absolute; bottom: -30%; left: -10%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(184,67,58,.04), transparent 70%); pointer-events: none; }
-        .hero-content { max-width: 800px; margin: 0 auto; text-align: center; position: relative; z-index: 1; animation: fadeUp .8s ease; }
-        .hero-badge { display: inline-flex; align-items: center; gap: .4rem; background: rgba(184,67,58,.1); border: 1px solid rgba(184,67,58,.2); border-radius: 20px; padding: .3rem .9rem; font-size: .75rem; color: var(--accent); margin-bottom: 1.5rem; }
-        .hero-icon { font-size: 2.8rem; color: var(--accent); margin-bottom: .75rem; }
-        .hero h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: .5rem; letter-spacing: -1px; line-height: 1.1; }
+        /* ── Navbar ── */
+        .navbar {
+            background: rgba(12,15,26,.85);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            padding: .65rem 1.5rem;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .navbar::after {
+            content: ''; position: absolute; bottom: 0; left: 10%; width: 80%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), var(--warning), var(--accent), transparent);
+            opacity: .25;
+        }
+        .navbar-brand { color: var(--text) !important; font-weight: 700; font-size: 1.1rem; letter-spacing: -.3px; }
+        .navbar-brand i { color: var(--accent); margin-right: .5rem; }
+
+        /* ── Hero ── */
+        .hero {
+            flex: 1; display: flex; align-items: center;
+            padding: 3rem 1.5rem; position: relative; overflow: hidden;
+        }
+        .hero-bg-glow1 {
+            position: absolute; top: -30%; right: -15%; width: 600px; height: 600px;
+            background: radial-gradient(circle, var(--accent-glow), transparent 65%);
+            pointer-events: none;
+        }
+        .hero-bg-glow2 {
+            position: absolute; bottom: -25%; left: -10%; width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(244,201,124,.06), transparent 65%);
+            pointer-events: none;
+        }
+        .hero-content {
+            max-width: 850px; margin: 0 auto; text-align: center;
+            position: relative; z-index: 1;
+            animation: fadeUp .7s ease;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: .4rem;
+            background: var(--accent-glow); border: 1px solid rgba(232,130,108,.2);
+            border-radius: 20px; padding: .3rem .9rem; font-size: .75rem; color: var(--accent);
+            margin-bottom: 1.5rem;
+        }
+        .hero-icon { font-size: 2.8rem; color: var(--accent); margin-bottom: .75rem; opacity: .9; }
+        .hero h1 {
+            font-size: 3rem; font-weight: 800; margin-bottom: .5rem;
+            letter-spacing: -1.5px; line-height: 1.1;
+        }
         .hero h1 span { color: var(--accent); }
-        .hero p { color: var(--text-muted); font-size: 1.1rem; max-width: 520px; margin: 0 auto 2rem; line-height: 1.6; }
-        .accent-bar { width: 40px; height: 3px; background: var(--accent); border-radius: 2px; margin: 1rem auto 1.5rem; }
+        .hero .subtitle {
+            color: var(--text-muted); font-size: 1.1rem; max-width: 540px;
+            margin: 0 auto 2rem; line-height: 1.7;
+        }
+        .accent-bar {
+            width: 40px; height: 3px; background: linear-gradient(90deg, var(--accent), var(--warning));
+            border-radius: 2px; margin: 1rem auto 1.5rem;
+        }
 
-        /* Stats */
-        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; max-width: 600px; margin: 0 auto 2rem; }
-        .stat-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem .75rem; transition: transform .2s, border-color .2s; }
-        .stat-box:hover { transform: translateY(-2px); border-color: rgba(184,67,58,.3); }
+        /* ── Stats ── */
+        .stat-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem;
+            max-width: 600px; margin: 0 auto 2rem;
+        }
+        .stat-box {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1rem .75rem;
+            transition: transform .2s, border-color .2s, box-shadow .2s;
+            animation: countUp .6s ease both;
+        }
+        .stat-box:nth-child(1) { animation-delay: .1s; }
+        .stat-box:nth-child(2) { animation-delay: .2s; }
+        .stat-box:nth-child(3) { animation-delay: .3s; }
+        .stat-box:nth-child(4) { animation-delay: .4s; }
+        .stat-box:hover {
+            transform: translateY(-3px); border-color: var(--accent);
+            box-shadow: 0 4px 20px rgba(0,0,0,.3);
+        }
         .stat-box .value { font-size: 1.6rem; font-weight: 700; font-family: monospace; line-height: 1.2; }
         .stat-box .value.accent { color: var(--accent); }
         .stat-box .value.green { color: var(--success); }
         .stat-box .value.blue { color: var(--info); }
         .stat-box .value.gold { color: var(--warning); }
         .stat-box .label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: .15rem; }
-        @media (max-width: 500px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 501px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
 
-        /* Buttons */
+        /* ── Buttons & CTAs ── */
         .btn-group { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2.5rem; }
-        .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; padding: .65rem 2rem; border-radius: 10px; font-weight: 600; font-size: .9rem; transition: all .2s; }
-        .btn-accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(168,18,24,.3); }
-        .btn-outline-accent { border: 1px solid var(--border); color: var(--text-muted); padding: .65rem 2rem; border-radius: 10px; font-weight: 500; font-size: .9rem; transition: all .2s; background: transparent; }
-        .btn-outline-accent:hover { border-color: var(--accent); color: var(--accent); background: rgba(168,18,24,.05); }
-        .btn-primary-cta { display: inline-flex; align-items: center; gap: .5rem; background: var(--accent); color: #fff; border: none; padding: .85rem 2.5rem; border-radius: 12px; font-weight: 700; font-size: 1.05rem; transition: all .25s; box-shadow: 0 4px 20px rgba(168,18,24,.3); }
-        .btn-primary-cta:hover { background: var(--accent-hover); color: #fff; transform: translateY(-2px); box-shadow: 0 6px 25px rgba(168,18,24,.4); }
-        .btn-secondary-cta { display: inline-flex; align-items: center; gap: .4rem; background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: .55rem 1.5rem; border-radius: 10px; font-weight: 500; font-size: .85rem; transition: all .2s; }
-        .btn-secondary-cta:hover { border-color: var(--accent); color: var(--accent); background: rgba(168,18,24,.05); }
+        .btn-primary-cta {
+            display: inline-flex; align-items: center; gap: .5rem;
+            background: var(--accent); color: #fff; border: none;
+            padding: .9rem 2.5rem; border-radius: 12px;
+            font-weight: 700; font-size: 1.05rem;
+            transition: all .25s; box-shadow: 0 4px 25px rgba(232,130,108,.3);
+        }
+        .btn-primary-cta:hover {
+            background: var(--accent-hover); color: #fff;
+            transform: translateY(-2px); box-shadow: 0 6px 30px rgba(232,130,108,.4);
+        }
+        .btn-secondary-cta {
+            display: inline-flex; align-items: center; gap: .4rem;
+            background: transparent; color: var(--text-muted);
+            border: 1px solid var(--border); padding: .55rem 1.5rem;
+            border-radius: 10px; font-weight: 500; font-size: .85rem;
+            transition: all .2s;
+        }
+        .btn-secondary-cta:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
         .cta-divider { display: flex; align-items: center; gap: .75rem; color: var(--text-muted); font-size: .8rem; width: 100%; justify-content: center; }
         .cta-divider span { background: var(--bg); padding: 0 .5rem; }
 
-        /* Sections */
-        .section { max-width: 720px; margin: 0 auto 2.5rem; text-align: center; }
-        .section h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: .5rem; }
-        .section p { color: var(--text-muted); font-size: .9rem; line-height: 1.6; }
-        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
-        .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1rem; text-align: center; }
-        .step-num { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(184,67,58,.1); color: var(--accent); font-weight: 700; font-size: .85rem; margin-bottom: .75rem; }
-        .step h4 { font-size: .9rem; font-weight: 600; margin-bottom: .3rem; }
-        .step p { font-size: .8rem; color: var(--text-muted); margin: 0; }
-        @media (max-width: 500px) { .steps { grid-template-columns: 1fr; } }
+        /* ── Sections ── */
+        .section { max-width: 800px; margin: 0 auto 2.5rem; text-align: center; }
+        .section-label {
+            display: inline-flex; align-items: center; gap: .35rem;
+            font-size: .7rem; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--accent); margin-bottom: .5rem; font-weight: 600;
+        }
+        .section h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: .5rem; }
+        .section p { color: var(--text-muted); font-size: .9rem; line-height: 1.6; max-width: 520px; margin: 0 auto; }
+
+        /* Steps */
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 1.5rem; }
+        .step {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.5rem 1.25rem; text-align: center;
+            transition: transform .2s, border-color .2s;
+        }
+        .step:hover { transform: translateY(-2px); border-color: var(--accent); }
+        .step-num {
+            display: flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--accent-glow); color: var(--accent);
+            font-weight: 700; font-size: .9rem; margin: 0 auto .75rem;
+        }
+        .step-icon { font-size: 1.2rem; color: var(--accent); margin-bottom: .5rem; }
+        .step h4 { font-size: .95rem; font-weight: 600; margin-bottom: .3rem; }
+        .step p { font-size: .82rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
+
+        /* Why Join */
+        .benefits { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; margin-top: 1.5rem; }
+        .benefit {
+            display: flex; align-items: flex-start; gap: .85rem;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1rem 1.15rem; text-align: left;
+            transition: border-color .2s;
+        }
+        .benefit:hover { border-color: var(--accent); }
+        .benefit i {
+            font-size: 1.1rem; color: var(--accent); margin-top: .15rem;
+            width: 1.3rem; text-align: center; flex-shrink: 0;
+        }
+        .benefit h5 { font-size: .85rem; font-weight: 600; margin-bottom: .2rem; }
+        .benefit p { font-size: .78rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
+
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--accent-glow), transparent);
+            border: 1px solid var(--border); border-radius: 16px;
+            padding: 2.5rem 2rem; margin-top: 1rem;
+        }
+        .cta-section h3 { color: var(--text); }
+        .cta-section p { color: var(--text-muted); }
+
+        /* ── Footer ── */
+        .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 1.5rem; border-top: 1px solid var(--border); margin-top: auto; }
+        .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: .5rem; flex-wrap: wrap; }
+        .footer-links a { color: var(--text-muted); text-decoration: none; font-size: .8rem; transition: color .15s; }
+        .footer-links a:hover { color: var(--accent); }
+
+        /* ── Animations ── */
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes countUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+        /* ── Mobile ── */
+        @media (max-width: 768px) {
+            .hero { padding: 2.5rem 1rem; }
+            .hero h1 { font-size: 2rem !important; }
+            .hero .subtitle { font-size: .95rem; }
+            .hero-icon { font-size: 2.2rem; }
+            .section h3 { font-size: 1.1rem; }
+            .stat-grid { max-width: 100%; }
+            .stat-box { padding: .85rem .65rem; }
+            .stat-box .value { font-size: 1.3rem; }
+            .steps { gap: .75rem; }
+            .step { padding: 1.15rem 1rem; }
+            .benefits { grid-template-columns: 1fr; gap: .5rem; }
+            .cta-section { padding: 1.5rem 1rem; }
+            .btn-primary-cta { padding: .75rem 1.5rem; font-size: .9rem; }
+        }
         @media (max-width: 500px) {
-            .hero { padding: 2rem 1rem; }
-            .hero-icon { font-size: 2.5rem; }
             .hero h1 { font-size: 1.5rem !important; }
-            .hero .lead { font-size: .85rem; }
-            .stat-box { padding: .75rem; }
+            .hero .subtitle { font-size: .85rem; }
+            .hero-badge { font-size: .68rem; padding: .2rem .7rem; }
+            .stat-grid { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
             .stat-box .value { font-size: 1.2rem; }
             .stat-box .label { font-size: .6rem; }
-            .btn-primary-cta { padding: .7rem 1.5rem; font-size: .9rem; }
-            .btn-secondary-cta { padding: .45rem 1rem; font-size: .78rem; }
-            .section { padding: 0 1rem; margin-bottom: 2rem; }
-            .section h3 { font-size: 1.1rem; }
+            .steps { grid-template-columns: 1fr; }
             .step { padding: 1rem; }
-            .step h4 { font-size: .9rem; }
-            .step p { font-size: .8rem; }
-            .features { grid-template-columns: 1fr; gap: .5rem; }
-            .feature-item { padding: .5rem .6rem; font-size: .78rem; }
+            .btn-primary-cta { padding: .65rem 1.25rem; font-size: .85rem; }
+            .btn-secondary-cta { padding: .45rem 1rem; font-size: .78rem; }
             .footer-links { gap: 1rem; }
             .footer-links a { font-size: .72rem; }
         }
         @media (max-width: 380px) {
             .hero h1 { font-size: 1.2rem !important; }
-            .btn-primary-cta { padding: .6rem 1.2rem; font-size: .82rem; }
-            .hero-badge { font-size: .65rem; padding: .2rem .6rem; }
-            .stat-box .value { font-size: 1rem; }
+            .btn-primary-cta { padding: .6rem 1rem; font-size: .8rem; }
+            .hero-badge { font-size: .6rem; padding: .15rem .5rem; }
         }
-
-        .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; max-width: 500px; margin: 0 auto 2.5rem; text-align: left; }
-        .feature-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); font-size: .85rem; }
-        .feature-item i { color: var(--success); font-size: .8rem; width: 1rem; text-align: center; }
-
-        .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 1.5rem; border-top: 1px solid var(--border); margin-top: auto; }
-        .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: .5rem; flex-wrap: wrap; }
-        .footer-links a { color: var(--text-muted); text-decoration: none; font-size: .8rem; }
-        .footer-links a:hover { color: var(--accent); }
-
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes countUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .stat-box { animation: countUp .6s ease both; }
-        .stat-box:nth-child(1) { animation-delay: .1s; }
-        .stat-box:nth-child(2) { animation-delay: .2s; }
-        .stat-box:nth-child(3) { animation-delay: .3s; }
-        .stat-box:nth-child(4) { animation-delay: .4s; }
         @media print { .navbar, .footer, .btn-group { display: none; } }
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="container-fluid px-0">
-            <a class="navbar-brand" href="/"><i class="fas fa-hand-holding-heart" style="color:var(--accent)"></i>KH07 Welfare</a>
+            <a class="navbar-brand" href="/"><i class="fas fa-hand-holding-heart"></i>KH07 Welfare</a>
             <div>
                 <a href="/login" class="btn btn-outline-accent btn-sm"><i class="fas fa-shield-alt me-1"></i>Admin</a>
                 <button id="theme-toggle" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:.35rem .6rem;" onclick="toggleTheme()" title="Toggle theme"><i class="fas fa-moon"></i></button>
@@ -143,11 +261,13 @@
     </nav>
 
     <section class="hero">
+        <div class="hero-bg-glow1"></div>
+        <div class="hero-bg-glow2"></div>
         <div class="hero-content">
             <div class="hero-badge"><i class="fas fa-heart"></i> Alumni Welfare Initiative</div>
             <div class="hero-icon"><i class="fas fa-hand-holding-heart"></i></div>
             <h1>We rise <span>by lifting</span> each other</h1>
-            <p>KH07 alumni coming together to support our community in times of need. Transparent, accountable, and built for us.</p>
+            <p class="subtitle">KH07 alumni coming together to support our community in times of need. Transparent, accountable, and built for us.</p>
             <div class="accent-bar"></div>
 
             <div class="stat-grid">
@@ -176,34 +296,84 @@
             </div>
 
             <div class="section">
-                <h3>How It Works</h3>
-                <p class="mb-0">Simple. Transparent. Community-driven.</p>
+                <div class="section-label"><i class="fas fa-arrow-right"></i> HOW IT WORKS</div>
+                <h3>Simple. Transparent. Community-driven.</h3>
+                <p>From cause to disbursement, every step is tracked and visible to all members.</p>
                 <div class="steps">
                     <div class="step">
                         <div class="step-num">1</div>
-                        <h4>A Cause Arises</h4>
-                        <p>When a member faces a need, a welfare cause is opened with a target.</p>
+                        <h4>Cause Opened</h4>
+                        <p>A welfare need is identified and a cause is created with a target amount.</p>
                     </div>
                     <div class="step">
                         <div class="step-num">2</div>
                         <h4>Members Contribute</h4>
-                        <p>Contribute via cash, M-Pesa, or bank. Every shilling is tracked.</p>
+                        <p>Contribute via cash, M-Pesa, or bank transfer. Every shilling is recorded.</p>
                     </div>
                     <div class="step">
                         <div class="step-num">3</div>
                         <h4>Funds Disbursed</h4>
-                        <p>Funds go directly to the beneficiary. Full transparency on who got what.</p>
+                        <p>Money goes directly to the beneficiary. Full transparency on every disbursement.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="features">
-                <div class="feature-item"><i class="fas fa-check-circle"></i>Track every contribution</div>
-                <div class="feature-item"><i class="fas fa-check-circle"></i>Per-cause progress</div>
-                <div class="feature-item"><i class="fas fa-check-circle"></i>M-Pesa &amp; bank support</div>
-                <div class="feature-item"><i class="fas fa-check-circle"></i>Printable receipts &amp; PDFs</div>
-                <div class="feature-item"><i class="fas fa-check-circle"></i>Self-service portal</div>
-                <div class="feature-item"><i class="fas fa-check-circle"></i>Real-time dashboard</div>
+            <div class="section">
+                <div class="section-label"><i class="fas fa-star"></i> WHY JOIN</div>
+                <h3>Built for our community</h3>
+                <p>Features designed to make welfare management simple and transparent.</p>
+                <div class="benefits">
+                    <div class="benefit">
+                        <i class="fas fa-search"></i>
+                        <div>
+                            <h5>Check Your Contributions</h5>
+                            <p>Look up your full contribution history by name, phone, or member number.</p>
+                        </div>
+                    </div>
+                    <div class="benefit">
+                        <i class="fas fa-receipt"></i>
+                        <div>
+                            <h5>Digital Receipts</h5>
+                            <p>Download PDF receipts for every contribution you make.</p>
+                        </div>
+                    </div>
+                    <div class="benefit">
+                        <i class="fas fa-chart-line"></i>
+                        <div>
+                            <h5>Real-time Dashboard</h5>
+                            <p>See per-cause progress, trends, and member activity at a glance.</p>
+                        </div>
+                    </div>
+                    <div class="benefit">
+                        <i class="fas fa-mobile-alt"></i>
+                        <div>
+                            <h5>Mobile Friendly</h5>
+                            <p>Access everything from your phone. Contributions, statements, receipts.</p>
+                        </div>
+                    </div>
+                    <div class="benefit">
+                        <i class="fas fa-file-export"></i>
+                        <div>
+                            <h5>Export &amp; Reports</h5>
+                            <p>Download data as CSV, Excel, or annual reports.</p>
+                        </div>
+                    </div>
+                    <div class="benefit">
+                        <i class="fas fa-shield-alt"></i>
+                        <div>
+                            <h5>Secure &amp; Private</h5>
+                            <p>Your data is protected. Only authorized admins can manage records.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cta-section">
+                <h3>Already a member?</h3>
+                <p>Check your contributions in seconds — no login required.</p>
+                <div class="btn-group" style="margin-bottom:0;">
+                    <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>View My Contributions</a>
+                </div>
             </div>
         </div>
     </section>
