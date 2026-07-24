@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — KH07 Welfare{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="fas fa-history"></i>Audit Log</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead><tr>
+                <th class="ps-3" style="width:160px">Time</th>
+                <th style="width:80px">User</th>
+                <th style="width:120px">Action</th>
+                <th class="pe-3">Details</th>
+            </tr></thead>
+            <tbody>
+                {% for e in entries %}
+                <tr>
+                    <td class="ps-3 small text-muted">{{ e.time[:19] }}</td>
+                    <td><span class="badge badge-active">{{ e.user }}</span></td>
+                    <td><span class="small">{{ e.action }}</span></td>
+                    <td class="pe-3 text-muted small">{{ e.details }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-4">No audit entries yet</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

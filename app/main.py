@@ -1,7 +1,7 @@
 """KH07 Welfare — FastAPI + Jinja2 + HTMX."""
-import sys, io
+import sys, io, os
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
@@ -675,6 +675,7 @@ async def cause_create(name: str = Form(...), target_amount: float = Form(0), db
     cause = ContributionCause(name=name.strip(), target_amount=target_amount if target_amount > 0 else None)
     db.add(cause)
     await db.commit()
+    AuditLog.add("CREATE CAUSE", f"{name.strip()} (KES {target_amount:,.0f})")
     # Send Telegram notification
     msg = f"""<b>🆕 New Welfare Cause</b>
 <b>{name.strip()}</b>
@@ -727,6 +728,41 @@ async def annual_report(year: int, request: Request, db: AsyncSession = Depends(
                   contrib_count=contrib_count, member_count=member_count, active_count=active_count,
                   cause_stats=cause_stats, top_members=top_members, total_disbursed=total_disbursed,
                   monthly=monthly, month_labels=month_labels)
+
+
+# ── Database backup download ──
+@app.get("/admin/backup")
+async def db_backup(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    from app.database import DATABASE_URL
+    db_path = DATABASE_URL.replace("sqlite+aiosqlite:///", "")
+    if not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail="Database file not found")
+    size = os.path.getsize(db_path)
+    return Response(content=open(db_path, "rb").read(),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename=kh07_welfare_backup_{date.today().isoformat()}.sqlite3",
+                 "Content-Length": str(size)})
+
+
+# ── Audit log model ──
+class AuditLog:
+    _entries: list = []
+    MAX = 500
+
+    @classmethod
+    def add(cls, action: str, details: str, username: str = "admin"):
+        cls._entries.append({"time": datetime.now().isoformat(), "action": action, "details": details, "user": username})
+        if len(cls._entries) > cls.MAX:
+            cls._entries = cls._entries[-cls.MAX:]
+
+    @classmethod
+    def recent(cls, limit: int = 50):
+        return list(reversed(cls._entries[-limit:]))
+
+
+@app.get("/admin/audit", response_class=HTMLResponse)
+async def audit_page(request: Request, user: str = Depends(require_auth)):
+    return render("audit.html", user=user, request=request, entries=AuditLog.recent(100))
 
 
 # Exception handlers

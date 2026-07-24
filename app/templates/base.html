@@ -22,6 +22,7 @@
             --info: #3a7bb8;
             --warning: #b88a3a;
         }
+        * { box-sizing: border-box; }
         body {
             background: var(--bg-primary);
             color: var(--text);
@@ -145,6 +146,18 @@
         ::-webkit-scrollbar-track { background: var(--bg-primary); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3d2222; }
+        .table-responsive-custom { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        @media (max-width: 768px) {
+            .navbar { padding: .5rem .75rem; }
+            main.container-fluid { padding-left: .75rem !important; padding-right: .75rem !important; }
+            .stat-card .value { font-size: 1.3rem; }
+            .page-title { font-size: 1.1rem; }
+            .table { font-size: .85rem; }
+            .table td, .table th { white-space: nowrap; padding: .4rem .5rem; }
+            .card-header { padding: .75rem 1rem; }
+            .card-body { padding: .75rem 1rem; }
+            .btn-sm { font-size: .75rem; padding: .25rem .5rem; }
+        }
         .footer { color: var(--text-muted); font-size: .8rem; text-align: center; padding: 2rem 0; }
         .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.5rem; }
         .page-title i { color: var(--accent); margin-right: .6rem; }
@@ -184,6 +197,9 @@
                             <li><a class="dropdown-item" href="/export/excel"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="/report/2026"><i class="fas fa-file-alt me-2"></i>Annual Report</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/admin/audit"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                            <li><a class="dropdown-item" href="/admin/backup"><i class="fas fa-database me-2"></i>Backup DB</a></li>
                         </ul>
                     </li>
                     <li class="nav-item"><a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt"></i></a></li>
