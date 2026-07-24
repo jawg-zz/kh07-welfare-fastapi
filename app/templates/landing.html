@@ -60,6 +60,7 @@
         .stat-box .value.gold { color: var(--warning); }
         .stat-box .label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: .15rem; }
         @media (max-width: 500px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 501px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
 
         /* Buttons */
         .btn-group { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2.5rem; }
@@ -84,6 +85,32 @@
         .step h4 { font-size: .9rem; font-weight: 600; margin-bottom: .3rem; }
         .step p { font-size: .8rem; color: var(--text-muted); margin: 0; }
         @media (max-width: 500px) { .steps { grid-template-columns: 1fr; } }
+        @media (max-width: 500px) {
+            .hero { padding: 2rem 1rem; }
+            .hero-icon { font-size: 2.5rem; }
+            .hero h1 { font-size: 1.5rem !important; }
+            .hero .lead { font-size: .85rem; }
+            .stat-box { padding: .75rem; }
+            .stat-box .value { font-size: 1.2rem; }
+            .stat-box .label { font-size: .6rem; }
+            .btn-primary-cta { padding: .7rem 1.5rem; font-size: .9rem; }
+            .btn-secondary-cta { padding: .45rem 1rem; font-size: .78rem; }
+            .section { padding: 0 1rem; margin-bottom: 2rem; }
+            .section h3 { font-size: 1.1rem; }
+            .step { padding: 1rem; }
+            .step h4 { font-size: .9rem; }
+            .step p { font-size: .8rem; }
+            .features { grid-template-columns: 1fr; gap: .5rem; }
+            .feature-item { padding: .5rem .6rem; font-size: .78rem; }
+            .footer-links { gap: 1rem; }
+            .footer-links a { font-size: .72rem; }
+        }
+        @media (max-width: 380px) {
+            .hero h1 { font-size: 1.2rem !important; }
+            .btn-primary-cta { padding: .6rem 1.2rem; font-size: .82rem; }
+            .hero-badge { font-size: .65rem; padding: .2rem .6rem; }
+            .stat-box .value { font-size: 1rem; }
+        }
 
         .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; max-width: 500px; margin: 0 auto 2.5rem; text-align: left; }
         .feature-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); font-size: .85rem; }
