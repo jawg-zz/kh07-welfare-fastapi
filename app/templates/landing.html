@@ -55,6 +55,12 @@
         .btn-accent:hover { background: #d14d42; border-color: #d14d42; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(184,67,58,.3); }
         .btn-outline-accent { border: 1px solid var(--border); color: var(--text-muted); padding: .65rem 2rem; border-radius: 10px; font-weight: 500; font-size: .9rem; transition: all .2s; background: transparent; }
         .btn-outline-accent:hover { border-color: var(--accent); color: var(--accent); background: rgba(184,67,58,.05); }
+        .btn-primary-cta { display: inline-flex; align-items: center; gap: .5rem; background: var(--accent); color: #fff; border: none; padding: .85rem 2.5rem; border-radius: 12px; font-weight: 700; font-size: 1.05rem; transition: all .25s; box-shadow: 0 4px 20px rgba(184,67,58,.3); }
+        .btn-primary-cta:hover { background: #d14d42; color: #fff; transform: translateY(-2px); box-shadow: 0 6px 25px rgba(184,67,58,.4); }
+        .btn-secondary-cta { display: inline-flex; align-items: center; gap: .4rem; background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: .55rem 1.5rem; border-radius: 10px; font-weight: 500; font-size: .85rem; transition: all .2s; }
+        .btn-secondary-cta:hover { border-color: var(--accent); color: var(--accent); background: rgba(184,67,58,.05); }
+        .cta-divider { display: flex; align-items: center; gap: .75rem; color: var(--text-muted); font-size: .8rem; width: 100%; justify-content: center; }
+        .cta-divider span { background: var(--bg); padding: 0 .5rem; }
 
         /* Sections */
         .section { max-width: 720px; margin: 0 auto 2.5rem; text-align: center; }
@@ -91,7 +97,7 @@
         <div class="container-fluid px-0">
             <a class="navbar-brand" href="/"><i class="fas fa-hand-holding-heart" style="color:var(--accent)"></i>KH07 Welfare</a>
             <div>
-                <a href="/login" class="btn btn-accent btn-sm"><i class="fas fa-sign-in-alt me-1"></i>Admin Login</a>
+                <a href="/login" class="btn btn-outline-accent btn-sm"><i class="fas fa-shield-alt me-1"></i>Admin</a>
             </div>
         </div>
     </nav>
@@ -124,8 +130,9 @@
             </div>
 
             <div class="btn-group">
-                <a href="/login" class="btn btn-accent"><i class="fas fa-sign-in-alt me-1"></i>Admin Login</a>
-                <a href="/portal" class="btn btn-outline-accent"><i class="fas fa-search me-1"></i>Check My Contributions</a>
+                <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>View My Contributions</a>
+                <div class="cta-divider"><span>or</span></div>
+                <a href="/login" class="btn btn-secondary-cta"><i class="fas fa-shield-alt me-1"></i>Admin Login</a>
             </div>
 
             <div class="section">
