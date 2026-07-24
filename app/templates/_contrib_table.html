@@ -7,6 +7,7 @@
     <td class="text-center"><span class="badge {% if c.payment_method == 'mpesa' %}badge-active{% elif c.payment_method == 'bank' %}" style="background:rgba(58,123,184,.15);color:var(--info);{% else %}" style="background:rgba(184,138,58,.15);color:var(--warning);{% endif %}">{{ c.payment_method|upper }}</span></td>
     <td class="text-muted small">{{ c.transaction_ref or '—' }}</td>
     <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
+    <td class="pe-3"><a href="/receipt/{{ c.id }}" class="text-muted small" target="_blank"><i class="fas fa-receipt"></i></a></td>
 </tr>
 {% else %}
 <tr><td colspan="7" class="text-center text-muted py-4">No contributions found</td></tr>

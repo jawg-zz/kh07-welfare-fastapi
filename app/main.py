@@ -1,9 +1,9 @@
 """KH07 Welfare — FastAPI + Jinja2 + HTMX."""
-import sys
+import sys, io
 from pathlib import Path
 from datetime import date
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Depends, Form, HTTPException
+from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func, desc
@@ -380,6 +380,104 @@ async def member_inline_edit(member_id: int, request: Request, field: str = Form
     
     await db.commit()
     return HTMLResponse(value.strip() if value.strip() else "—")
+
+
+# ── Import Excel (upload form) ──
+@app.get("/import", response_class=HTMLResponse)
+async def import_form(request: Request, user: str = Depends(require_auth)):
+    return render("import.html", user=user, request=request)
+
+
+@app.post("/import", response_class=HTMLResponse)
+async def import_excel(request: Request, file: UploadFile = File(...), user: str = Depends(require_auth)):
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return HTMLResponse('<div class="alert alert-danger">Please upload a .xlsx file</div>')
+
+    contents = await file.read()
+    wb = openpyxl.load_workbook(io.BytesIO(contents))
+    ws = wb.active
+
+    # Detect format: headers in row 1
+    headers = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
+    
+    async with async_session() as db:
+        # Create missing causes from headers (col 3+)
+        cause_map = {}
+        for i, h in enumerate(headers[2:], 3):
+            if h and str(h).strip():
+                name = str(h).strip().split("(")[0].strip()
+                existing = (await db.execute(select(ContributionCause).where(ContributionCause.name == name))).scalar_one_or_none()
+                if not existing:
+                    existing = ContributionCause(name=name)
+                    db.add(existing)
+                    await db.flush()
+                cause_map[i] = existing.id
+
+        imported = 0
+        errors = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not row[0]:
+                continue
+            name = str(row[0]).strip()
+            phone = str(row[1]).strip() if row[1] else ""
+
+            member = (await db.execute(select(Member).where(Member.name == name))).scalar_one_or_none()
+            if not member:
+                member = Member(name=name, phone_number=phone)
+                db.add(member)
+                await db.flush()
+
+            for col_idx, cause_id in cause_map.items():
+                amount = row[col_idx - 1]
+                if amount and float(amount) > 0:
+                    existing_contrib = (await db.execute(
+                        select(Contribution).where(
+                            Contribution.member_id == member.id,
+                            Contribution.cause_id == cause_id,
+                        ).limit(1)
+                    )).scalar_one_or_none()
+                    if not existing_contrib:
+                        db.add(Contribution(
+                            member_id=member.id, cause_id=cause_id,
+                            amount=float(amount), date_paid=date.today(),
+                            payment_method="cash",
+                        ))
+                        imported += 1
+                    else:
+                        existing_contrib.amount = float(amount)
+
+        await db.commit()
+        total_members = (await db.execute(select(func.count(Member.id)))).scalar()
+
+    return HTMLResponse(f"""<div class="alert alert-success">
+        <i class="fas fa-check-circle me-2"></i>Import complete!
+        <br><strong>{imported}</strong> contributions imported
+        <br><strong>{total_members}</strong> total members
+        <br class="small text-muted">{len(errors)} errors
+    </div>""")
+
+
+# ── Cause edit (target amount) ──
+@app.post("/causes/{cause_id}/edit")
+async def cause_edit(cause_id: int, name: str = Form(...), target_amount: float = Form(0), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause = await db.get(ContributionCause, cause_id)
+    if not cause:
+        raise HTTPException(status_code=404)
+    cause.name = name.strip()
+    cause.target_amount = target_amount
+    await db.commit()
+    return RedirectResponse(url="/causes", status_code=302)
+
+
+# ── Contribution receipt ──
+@app.get("/receipt/{contrib_id}", response_class=HTMLResponse)
+async def contribution_receipt(contrib_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    c = await db.get(Contribution, contrib_id)
+    if not c:
+        raise HTTPException(status_code=404)
+    member = await db.get(Member, c.member_id)
+    cause = await db.get(ContributionCause, c.cause_id)
+    return render("receipt.html", user=user, request=request, c=c, member=member, cause=cause)
 
 
 # Exception handlers

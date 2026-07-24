@@ -62,6 +62,7 @@
                         <th class="text-end">Amount</th>
                         <th>Method</th>
                         <th class="pe-3">Notes</th>
+                        <th></th>
                     </tr></thead>
                     <tbody>
                         {% for c in contributions %}
@@ -71,6 +72,7 @@
                             <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
                             <td><span class="small" style="text-transform:uppercase;">{{ c.payment_method }}</span>{% if c.transaction_ref %}<br><span class="text-muted" style="font-size:.7rem;">{{ c.transaction_ref }}</span>{% endif %}</td>
                             <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
+                            <td class="text-end pe-3"><a href="/receipt/{{ c.id }}" class="text-muted small" target="_blank"><i class="fas fa-receipt"></i></a></td>
                         </tr>
                         {% else %}
                         <tr><td colspan="5" class="text-center text-muted py-4">No contributions recorded</td></tr>

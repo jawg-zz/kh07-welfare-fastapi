@@ -3,59 +3,80 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="page-title"><i class="fas fa-hand-holding-heart"></i>Welfare Causes</div>
+    <div class="page-title"><i class="fas fa-heart"></i>Welfare Causes</div>
     <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#newCauseModal"><i class="fas fa-plus me-1"></i>New Cause</button>
 </div>
 
-<div class="row g-3">
-    {% for c in causes %}
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h6 class="mb-0">{{ c.name }}</h6>
-                    {% if c.active %}<span class="badge badge-active" style="font-size:.65rem">Active</span>{% else %}<span class="badge badge-inactive" style="font-size:.65rem">Inactive</span>{% endif %}
-                </div>
-                <div class="row text-center my-3">
-                    <div class="col-4"><div class="fw-bold" style="font-family:monospace;color:var(--accent);font-size:1.1rem">KES {{ "{:,.0f}".format(c.total) }}</div><small class="text-muted">Collected</small></div>
-                    <div class="col-4"><div class="fw-bold" style="font-size:1.1rem">{{ c.contributors }}</div><small class="text-muted">Members</small></div>
-                    <div class="col-4">{% if c.target > 0 %}<div class="fw-bold" style="font-size:1.1rem">KES {{ "{:,.0f}".format(c.target) }}</div><small class="text-muted">Target</small>{% else %}<div class="text-muted" style="font-size:.8rem;margin-top:.5rem">No target</div>{% endif %}</div>
-                </div>
-                {% if c.progress is not none %}
-                <div class="mt-2">
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span class="text-muted">Progress</span>
-                        <span class="fw-bold">{{ c.progress }}%</span>
-                    </div>
-                    <div class="progress progress-thin">
-                        <div class="progress-bar {% if c.progress >= 100 %}bg-success{% endif %}" style="width:{{ c.progress }}%"></div>
-                    </div>
-                </div>
+{% for c in causes %}
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h6 class="mb-1">{{ c.name }}</h6>
+                <div class="text-muted small">{{ c.contributors }} contributors</div>
+            </div>
+            <div class="text-end">
+                <div class="fw-bold" style="font-size:1.2rem;color:var(--accent);font-family:monospace">KES {{ "{:,.0f}".format(c.total) }}</div>
+                {% if c.target > 0 %}
+                <div class="text-muted small" style="font-family:monospace">Target: KES {{ "{:,.0f}".format(c.target) }}</div>
                 {% endif %}
             </div>
         </div>
+        {% if c.progress is not none %}
+        <div class="d-flex align-items-center gap-2 mt-2">
+            <div class="progress progress-thin flex-grow-1" style="max-width:80%">
+                <div class="progress-bar {% if c.progress >= 100 %}bg-success{% elif c.progress >= 50 %}{% endif %}" style="width:{{ c.progress }}%"></div>
+            </div>
+            <span class="text-muted small" style="min-width:3rem">{{ c.progress }}%</span>
+        </div>
+        {% endif %}
+        <div class="mt-2">
+            <button class="btn btn-outline-accent btn-sm" data-bs-toggle="modal" data-bs-target="#editCauseModal{{ c.id }}"><i class="fas fa-edit me-1"></i>Edit</button>
+        </div>
     </div>
-    {% else %}
-    <div class="col-12"><div class="empty-state"><i class="fas fa-hand-holding-heart"></i><p>No causes yet</p></div></div>
-    {% endfor %}
 </div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editCauseModal{{ c.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/causes/{{ c.id }}/edit">
+                <div class="modal-header"><h6 class="mb-0"><i class="fas fa-edit me-2" style="color:var(--accent)"></i>Edit Cause</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cause Name</label>
+                        <input type="text" name="name" class="form-control" value="{{ c.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Target Amount (KES)</label>
+                        <input type="number" name="target_amount" class="form-control" step="0.01" min="0" value="{{ c.target }}">
+                        <small class="text-muted">Leave 0 for no target</small>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-accent btn-sm">Save</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
 <!-- New Cause Modal -->
 <div class="modal fade" id="newCauseModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="post" action="/causes/new">
-                <div class="modal-header"><h5 class="modal-title">New Welfare Cause</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-header"><h6 class="mb-0"><i class="fas fa-plus-circle me-2" style="color:var(--success)"></i>New Cause</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Cause Name</label>
-                        <input type="text" name="name" class="form-control" placeholder="e.g. Late Father of ..." required>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Target Amount (KES)</label>
+                        <input type="number" name="target_amount" class="form-control" step="0.01" min="0" value="0">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-accent btn-sm">Create Cause</button>
-                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-accent btn-sm">Create</button></div>
             </form>
         </div>
     </div>
