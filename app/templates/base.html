@@ -143,6 +143,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
+            color: var(--text);
             transition: transform .15s ease, box-shadow .2s ease;
         }
         .card:hover { box-shadow: var(--shadow-lg); }
@@ -152,6 +153,7 @@
             padding: .9rem 1.25rem;
             font-weight: 600;
             font-size: .9rem;
+            color: var(--text);
         }
         .card-header i { width: 1.3rem; text-align: center; }
         .card-body { padding: 1.15rem 1.25rem; }
@@ -320,7 +322,7 @@
         .search-box:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 .2rem rgba(232,130,108,.15); }
 
         /* ── Modal ── */
-        .modal-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); }
+        .modal-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); }
         .modal-header { border-color: var(--border); }
         .modal-footer { border-color: var(--border); }
         .modal-header .btn-close { filter: invert(.6); }
@@ -457,6 +459,7 @@
         (function() {
             var theme = localStorage.getItem('kh07-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
             var btn = document.getElementById('theme-toggle');
             if (btn) btn.innerHTML = '<i class="fas fa-' + (theme === 'dark' ? 'moon' : 'sun') + '"></i>';
         })();
@@ -465,10 +468,10 @@
             var current = html.getAttribute('data-theme') || 'dark';
             var next = current === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', next);
+            html.setAttribute('data-bs-theme', next);
             localStorage.setItem('kh07-theme', next);
             var btn = document.getElementById('theme-toggle');
             if (btn) btn.innerHTML = '<i class="fas fa-' + (next === 'dark' ? 'moon' : 'sun') + '"></i>';
-            // Notify HTMX to re-process
             document.body.dispatchEvent(new Event('htmx:afterSettle'));
         }
         // Toast helper

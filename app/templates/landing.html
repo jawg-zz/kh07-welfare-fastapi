@@ -193,6 +193,7 @@
         (function() {
             var theme = localStorage.getItem('kh07-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
             var btn = document.getElementById('theme-toggle');
             if (btn) btn.innerHTML = '<i class="fas fa-' + (theme === 'dark' ? 'moon' : 'sun') + '"></i>';
         })();
@@ -201,6 +202,7 @@
             var current = html.getAttribute('data-theme') || 'dark';
             var next = current === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', next);
+            html.setAttribute('data-bs-theme', next);
             localStorage.setItem('kh07-theme', next);
             var btn = document.getElementById('theme-toggle');
             if (btn) btn.innerHTML = '<i class="fas fa-' + (next === 'dark' ? 'moon' : 'sun') + '"></i>';
