@@ -276,6 +276,13 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = get_session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    
+    # Aggregate stats
+    total_members = (await db.execute(select(func.count(Member.id)))).scalar() or 0
+    active_members = (await db.execute(select(func.count(Member.id)).where(Member.is_active == True))).scalar() or 0
+    total_causes = (await db.execute(select(func.count(ContributionCause.id)))).scalar() or 0
+    total_contributions = (await db.execute(select(func.count(Contribution.id)))).scalar() or 0
+    total_collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)))).scalar() or 0)
 
     # Top 10
     top_q = (await db.execute(
@@ -997,7 +1004,6 @@ async def audit_page(request: Request, user: str = Depends(require_auth)):
 # ── Old route redirects ──
 _OLD_ROUTES = {
     "/dashboard": "/overview", "/dashboard/stats": "/overview/stats",
-    "/overview": "/alumni", "/overview/stats": "/alumni",
     "/import": "/bulk-upload",
     "/members": "/alumni", "/members/new": "/alumni/register",
     "/causes": "/welfare-causes", "/causes/new": "/welfare-causes/new",
