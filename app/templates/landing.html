@@ -131,7 +131,18 @@
             padding: .9rem 2.5rem; border-radius: 12px;
             font-weight: 700; font-size: 1.05rem;
             transition: all .25s; box-shadow: 0 4px 25px rgba(232,130,108,.3);
+            position: relative;
         }
+        .btn-primary-cta::after {
+            content: ''; position: absolute; inset: -3px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--accent), var(--warning), var(--accent));
+            opacity: 0; z-index: -1;
+            transition: opacity .3s;
+            animation: ctaPulse 3s ease-in-out infinite;
+        }
+        @keyframes ctaPulse { 0%, 100% { opacity: 0; } 50% { opacity: .35; } }
+        .btn-primary-cta:hover::after { opacity: .5; animation: none; }
         .btn-primary-cta:hover {
             background: var(--accent-hover); color: #fff;
             transform: translateY(-2px); box-shadow: 0 6px 30px rgba(232,130,108,.4);
@@ -146,6 +157,8 @@
         .btn-secondary-cta:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
         .cta-divider { display: flex; align-items: center; gap: .75rem; color: var(--text-muted); font-size: .8rem; width: 100%; justify-content: center; }
         .cta-divider span { background: var(--bg); padding: 0 .5rem; }
+        .cta-trust { font-size: .78rem; color: var(--text-muted); margin-top: .75rem; }
+        .cta-trust i { color: var(--success); margin: 0 .2rem; }
 
         /* ── Sections ── */
         .section { max-width: 800px; margin: 0 auto 2.5rem; text-align: center; }
@@ -277,6 +290,7 @@
             .step { padding: 1rem; }
             .btn-primary-cta { padding: .65rem 1.25rem; font-size: .85rem; }
             .btn-secondary-cta { padding: .45rem 1rem; font-size: .78rem; }
+            .cta-trust { font-size: .7rem; }
             .footer-links { gap: 1rem; }
             .footer-links a { font-size: .72rem; }
         }
@@ -329,9 +343,16 @@
             </div>
 
             <div class="btn-group">
-                <a href="/self-service" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
+                <a href="/self-service" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Find My Contributions</a>
                 <div class="cta-divider"><span>or</span></div>
-                <a href="/login" class="btn btn-secondary-cta"><i class="fas fa-shield-alt me-1"></i>Admin Login</a>
+                <a href="/login" class="btn btn-secondary-cta"><i class="fas fa-chart-pie me-1"></i>Admin Dashboard</a>
+            </div>
+            <div class="cta-trust">
+                <i class="fas fa-check-circle"></i> No login needed 
+                <i class="fas fa-circle" style="font-size:.25rem;vertical-align:middle;margin:0 .35rem;opacity:.4"></i>
+                Just your name or phone number
+                <i class="fas fa-circle" style="font-size:.25rem;vertical-align:middle;margin:0 .35rem;opacity:.4"></i>
+                <strong>{{ total_members }}</strong> alumni connected
             </div>
 
             <div class="section">
@@ -455,16 +476,21 @@
             </div>
 
             <div class="cta-section reveal">
-                <h3>Already a member?</h3>
-                <p>Check your contributions in seconds — no login required.</p>
+                <h3>Your contributions matter</h3>
+                <p>See exactly where your support has gone — every shilling, every cause, every receipt.</p>
                 <div class="portal-cta">
-                    <div class="portal-feature"><i class="fas fa-check-circle"></i> View contributions</div>
-                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Update phone</div>
-                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Track causes</div>
-                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Suggest new cause</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Full contribution history</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Download PDF receipts</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Track active causes</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Update your contact</div>
                 </div>
                 <div class="btn-group" style="margin-bottom:0;margin-top:1.25rem;">
-                    <a href="/self-service" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
+                    <a href="/self-service" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Find My Contributions</a>
+                </div>
+                <div class="cta-trust">
+                    <i class="fas fa-lock"></i> Private &amp; secure 
+                    <i class="fas fa-circle" style="font-size:.25rem;vertical-align:middle;margin:0 .35rem;opacity:.4"></i>
+                    <i class="fas fa-clock"></i> Takes 10 seconds
                 </div>
             </div>
         </div>
