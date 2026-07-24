@@ -8,7 +8,7 @@
             <i class="fas fa-users icon"></i>
             <div class="value">{{ stats.total_members }}</div>
             <div class="label">Total Members</div>
-            <small class="text-muted">{{ stats.active_members }} active · {{ stats.inactive_members }} inactive</small>
+            <small class="text-muted" style="font-size:.7rem;">{{ stats.active_members }} active · {{ stats.inactive_members }} inactive</small>
         </div>
     </div>
     <div class="col-xl-3 col-md-6">
@@ -16,7 +16,7 @@
             <i class="fas fa-hand-holding-heart icon"></i>
             <div class="value">{{ stats.total_causes }}</div>
             <div class="label">Welfare Causes</div>
-            <small class="text-muted">{{ stats.total_contributions }} total contributions</small>
+            <small class="text-muted" style="font-size:.7rem;">{{ stats.total_contributions }} total contributions</small>
         </div>
     </div>
     <div class="col-xl-3 col-md-6">
@@ -24,7 +24,7 @@
             <i class="fas fa-coins icon"></i>
             <div class="value">KES {{ "{:,.0f}".format(stats.total_collected) }}</div>
             <div class="label">Total Collected</div>
-            <small class="text-muted">Avg KES {{ "{:,.0f}".format(stats.avg_per_member) }}/member</small>
+            <small class="text-muted" style="font-size:.7rem;">Avg KES {{ "{:,.0f}".format(stats.avg_per_member) }}/member</small>
         </div>
     </div>
     <div class="col-xl-3 col-md-6">
@@ -32,13 +32,41 @@
             <i class="fas fa-chart-line icon"></i>
             <div class="value">KES {{ "{:,.0f}".format(stats.avg_per_cause) }}</div>
             <div class="label">Avg Per Cause</div>
-            <small class="text-muted">Across {{ stats.total_causes }} causes</small>
+            <small class="text-muted" style="font-size:.7rem;">Across {{ stats.total_causes }} causes</small>
         </div>
     </div>
 </div>
 
+<!-- Quick Actions -->
+<div class="row g-2 mb-4">
+    <div class="col-6 col-md-3">
+        <a href="/members/new" class="quick-action">
+            <div class="qa-icon accent"><i class="fas fa-user-plus"></i></div>
+            <div><div class="qa-label">Add Member</div><div class="qa-sub">New registration</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/causes" class="quick-action">
+            <div class="qa-icon success"><i class="fas fa-heart"></i></div>
+            <div><div class="qa-label">New Cause</div><div class="qa-sub">Start collection</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/import" class="quick-action">
+            <div class="qa-icon info"><i class="fas fa-upload"></i></div>
+            <div><div class="qa-label">Import Excel</div><div class="qa-sub">Bulk upload</div></div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="/portal" class="quick-action">
+            <div class="qa-icon warning"><i class="fas fa-search"></i></div>
+            <div><div class="qa-label">Member Portal</div><div class="qa-sub">Self-service</div></div>
+        </a>
+    </div>
+</div>
+
 <div class="card mb-4">
-    <div class="card-body py-2">
+    <div class="card-body py-3">
         <form class="row g-2 align-items-end" hx-get="/dashboard/stats" hx-target="#dashboard-stats" hx-trigger="change, submit" hx-swap="outerHTML">
             <div class="col-auto"><label class="form-label">From</label><input type="date" name="from" class="form-control form-control-sm"></div>
             <div class="col-auto"><label class="form-label">To</label><input type="date" name="to" class="form-control form-control-sm"></div>
