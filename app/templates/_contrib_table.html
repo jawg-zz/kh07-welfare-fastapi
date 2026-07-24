@@ -1,0 +1,13 @@
+{% for c in contributions %}
+<tr>
+    <td class="ps-3">{{ c.date_paid }}</td>
+    <td><a href="/members/{{ c.member.id }}">{{ c.member.name }}</a></td>
+    <td>{{ c.cause.name }}</td>
+    <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
+    <td class="text-center"><span class="badge {% if c.payment_method == 'mpesa' %}badge-active{% elif c.payment_method == 'bank' %}" style="background:rgba(58,123,184,.15);color:var(--info);{% else %}" style="background:rgba(184,138,58,.15);color:var(--warning);{% endif %}">{{ c.payment_method|upper }}</span></td>
+    <td class="text-muted small">{{ c.transaction_ref or '—' }}</td>
+    <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="text-center text-muted py-4">No contributions found</td></tr>
+{% endfor %}

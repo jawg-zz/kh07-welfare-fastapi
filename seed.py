@@ -1,4 +1,4 @@
-"""Seed the database with initial data from the original contributions.
+"""Seed the database with initial data.
 Run at Docker build time to ensure deployed images have data.
 """
 import asyncio
@@ -9,7 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.database import async_session, engine, Base
 from app.models import Member, ContributionCause, Contribution
 from sqlalchemy import select, func
-
+from datetime import date
+import random
 
 SEED_DATA = {
     "causes": [
@@ -56,11 +57,8 @@ SEED_DATA = {
         "Stanley Nyangena", "Polycap Nyaribo", "Ezra Mogire", "Robin Nyakundi",
         "Edwin Onguti", "Joash Mbegera", "Jonathan Momanyi",
     ],
+    # (member_index, cause_index, amount)
     "contributions": [
-        # (member_index, cause_index, amount)
-        # Cause 1: Late Father of Abel Mokua
-        # Cause 2: Late Mother of Oscar Odwar
-        # Cause 3: Late Mother of Aineah Nyabuga
         (0,0,500),(0,1,1000),(0,2,1000),(1,0,500),(1,1,1500),(1,2,0),
         (2,0,500),(2,1,500),(2,2,0),(3,0,1000),(3,1,1000),(3,2,1000),
         (4,0,0),(4,1,1000),(4,2,500),(5,0,500),(5,1,500),(5,2,500),
@@ -138,58 +136,69 @@ SEED_DATA = {
     ],
 }
 
+# Stagger dates across recent months for realistic trends
+from datetime import date as date_cls
+_base_date = date_cls(2026, 7, 24)
+
+
+def _stagger_date(index: int) -> date_cls:
+    """Spread contributions across Jan-Jul 2026."""
+    from datetime import timedelta
+    day_offset = index % 210  # ~7 months of unique days
+    return _base_date - timedelta(days=210 - day_offset)
+
 
 async def seed():
-    """Create tables and seed data."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async with async_session() as session:
-        # Check if data exists
         existing = (await session.execute(select(func.count(Member.id)))).scalar()
         if existing and existing > 0:
             print(f"Database already has {existing} members, skipping seed")
             return
 
-        # Create causes
         cause_ids = []
         for c in SEED_DATA["causes"]:
             cause = ContributionCause(name=c["name"])
             session.add(cause)
             await session.flush()
             cause_ids.append(cause.id)
-        print(f"Created {len(cause_ids)} causes")
 
-        # Create members
         member_ids = []
         for i, name in enumerate(SEED_DATA["members"], 1):
             member = Member(member_number=i, name=name)
             session.add(member)
             await session.flush()
             member_ids.append(member.id)
-        print(f"Created {len(member_ids)} members")
 
-        # Create contributions
+        methods = ["cash", "mpesa", "bank"]
         count = 0
-        from datetime import date
-        for midx, cidx, amount in SEED_DATA["contributions"]:
+        for idx, (midx, cidx, amount) in enumerate(SEED_DATA["contributions"]):
             if amount > 0:
+                method = methods[idx % 3]
+                ref = ""
+                if method == "mpesa":
+                    ref = f"MP{random.randint(100000, 999999)}"
+                elif method == "bank":
+                    ref = f"TRF{random.randint(10000, 99999)}"
                 contrib = Contribution(
                     member_id=member_ids[midx],
                     cause_id=cause_ids[cidx],
                     amount=amount,
-                    date_paid=date.today(),
+                    payment_method=method,
+                    transaction_ref=ref,
+                    date_paid=_stagger_date(count),
                 )
                 session.add(contrib)
                 count += 1
-        
-        await session.commit()
-        print(f"Created {count} contributions")
 
-    # Verify
+        await session.commit()
+        print(f"Seeded: {len(member_ids)} members, {len(cause_ids)} causes, {count} contributions")
+
     async with async_session() as session:
         total = (await session.execute(select(func.coalesce(func.sum(Contribution.amount), 0)))).scalar()
-        print(f"\nSeed complete: {len(member_ids)} members, {len(cause_ids)} causes, {count} contributions, KES {float(total):,.0f}")
+        print(f"Total: KES {float(total):,.0f}")
 
 
 if __name__ == "__main__":

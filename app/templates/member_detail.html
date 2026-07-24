@@ -49,7 +49,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-coins me-2" style="color:var(--accent)"></i>Contribution History</span>
-                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addContribModal"><i class="fas fa-plus me-1"></i>Record Contribution</button>
+                <div class="d-flex gap-2">
+                    <a href="/members/{{ member.id }}/statement" class="btn btn-outline-accent btn-sm"><i class="fas fa-file-alt me-1"></i>Statement</a>
+                    <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#addContribModal"><i class="fas fa-plus me-1"></i>Record</button>
+                </div>
             </div>
             <div class="card-body p-0" id="contrib-list">
                 <table class="table table-hover mb-0">
@@ -57,6 +60,7 @@
                         <th class="ps-3">Date</th>
                         <th>Cause</th>
                         <th class="text-end">Amount</th>
+                        <th>Method</th>
                         <th class="pe-3">Notes</th>
                     </tr></thead>
                     <tbody>
@@ -65,10 +69,11 @@
                             <td class="ps-3">{{ c.date_paid }}</td>
                             <td>{{ c.cause.name }}</td>
                             <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
+                            <td><span class="small" style="text-transform:uppercase;">{{ c.payment_method }}</span>{% if c.transaction_ref %}<br><span class="text-muted" style="font-size:.7rem;">{{ c.transaction_ref }}</span>{% endif %}</td>
                             <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="4" class="text-center text-muted py-4">No contributions recorded</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted py-4">No contributions recorded</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -95,6 +100,18 @@
                     <div class="mb-3">
                         <label class="form-label">Amount (KES)</label>
                         <input type="number" name="amount" class="form-control" step="0.01" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="cash">Cash</option>
+                            <option value="mpesa">M-Pesa</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Transaction Ref (M-Pesa/Bank)</label>
+                        <input type="text" name="transaction_ref" class="form-control" placeholder="e.g. MP123456">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Date Paid</label>

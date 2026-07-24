@@ -4,6 +4,48 @@
 
 <div class="page-title"><i class="fas fa-coins"></i>All Contributions</div>
 
+<div class="card mb-3">
+    <div class="card-body">
+        <form class="row g-2 align-items-end" hx-get="/contributions/filter" hx-target="#contrib-table" hx-trigger="change">
+            <div class="col-md-4">
+                <label class="form-label">Cause</label>
+                <select name="cause_id" class="form-select">
+                    <option value="">All Causes</option>
+                    {% for c in causes %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Month</label>
+                <select name="month" class="form-select">
+                    <option value="">All Months</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" class="form-control" placeholder="Member name...">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-accent btn-sm w-100" type="submit"><i class="fas fa-filter me-1"></i>Filter</button>
+                <button class="btn btn-outline-accent btn-sm" type="reset" onclick="this.closest('form').querySelectorAll('select,input').forEach(e=>e.value=''); htmx.trigger('#contrib-table', 'change')"><i class="fas fa-undo"></i></button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
@@ -12,20 +54,12 @@
                 <th>Member</th>
                 <th>Cause</th>
                 <th class="text-end">Amount (KES)</th>
+                <th>Method</th>
+                <th>Ref</th>
                 <th class="pe-3">Notes</th>
             </tr></thead>
-            <tbody>
-                {% for c in contributions %}
-                <tr>
-                    <td class="ps-3">{{ c.date_paid }}</td>
-                    <td><a href="/members/{{ c.member.id }}">{{ c.member.name }}</a></td>
-                    <td>{{ c.cause.name }}</td>
-                    <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
-                    <td class="pe-3 text-muted small">{{ c.notes or '—' }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" class="text-center text-muted py-4">No contributions recorded</td></tr>
-                {% endfor %}
+            <tbody id="contrib-table">
+                {% include "_contrib_table.html" %}
             </tbody>
         </table>
     </div>

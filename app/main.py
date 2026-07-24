@@ -94,6 +94,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     total_contributions = (await db.execute(select(func.count(Contribution.id)))).scalar() or 0
     total_collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)))).scalar() or 0)
 
+    # Top 10
     top_q = (await db.execute(
         select(Member.id, Member.name, Member.member_number,
                func.coalesce(func.sum(Contribution.amount), 0).label("total"),
@@ -103,6 +104,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         .order_by(desc("total")).limit(10))).all()
     top_members = [{"id": r.id, "name": r.name, "member_number": r.member_number, "total": float(r.total), "count": r.count} for r in top_q]
 
+    # Per-cause breakdown
     causes_result = await db.execute(
         select(ContributionCause.id, ContributionCause.name, ContributionCause.target_amount,
                func.coalesce(func.sum(Contribution.amount), 0).label("total"),
@@ -114,6 +116,33 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
         pct = round(float(r.total) / float(r.target_amount) * 100, 1) if r.target_amount and r.target_amount > 0 else None
         cause_stats.append({"id": r.id, "name": r.name, "total": float(r.total), "contributors": r.contributors, "target": float(r.target_amount) if r.target_amount else 0, "progress": pct})
 
+    # Monthly trends (last 6 months)
+    from sqlalchemy import extract
+    current_year = 2026
+    months = []
+    month_labels = []
+    month_data = []
+    for m in range(1, 8):  # Jan - Jul 2026
+        monthly = (await db.execute(
+            select(func.coalesce(func.sum(Contribution.amount), 0))
+            .where(extract('year', Contribution.date_paid) == current_year)
+            .where(extract('month', Contribution.date_paid) == m)
+        )).scalar() or 0
+        months.append({"month": m, "total": float(monthly)})
+        from datetime import date as dt
+        month_labels.append(date(2026, m, 1).strftime("%b"))
+        month_data.append(float(monthly))
+
+    # Payment method breakdown
+    methods = ["cash", "mpesa", "bank"]
+    method_data = {}
+    for m in methods:
+        t = (await db.execute(
+            select(func.coalesce(func.sum(Contribution.amount), 0))
+            .where(Contribution.payment_method == m)
+        )).scalar() or 0
+        method_data[m] = float(t)
+
     return render("dashboard.html", user=user, request=request,
         stats={"total_members": total_members, "active_members": active_members, "inactive_members": total_members - active_members,
                "total_causes": total_causes, "total_contributions": total_contributions,
@@ -121,7 +150,9 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
                "avg_per_cause": round(total_collected / total_causes, 0) if total_causes else 0},
         top_members=top_members, cause_stats=cause_stats,
         chart_labels=[c["name"][:25] for c in cause_stats],
-        chart_data=[c["total"] for c in cause_stats])
+        chart_data=[c["total"] for c in cause_stats],
+        month_labels=month_labels, month_data=month_data,
+        method_data=method_data)
 
 
 # Members list
@@ -173,13 +204,17 @@ async def member_update(member_id: int, name: str = Form(...), phone_number: str
 
 
 @app.post("/members/{member_id}/add-contribution")
-async def member_add_contribution(member_id: int, cause_id: int = Form(...), amount: float = Form(...), date_paid: str = Form(...), notes: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+async def member_add_contribution(member_id: int, cause_id: int = Form(...), amount: float = Form(...),
+    payment_method: str = Form("cash"), transaction_ref: str = Form(""),
+    date_paid: str = Form(""), notes: str = Form(""),
+    db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     from datetime import date as date_cls
     try: dp = date_cls.fromisoformat(date_paid)
     except: dp = date_cls.today()
-    db.add(Contribution(member_id=member_id, cause_id=cause_id, amount=amount, date_paid=dp, notes=notes))
+    db.add(Contribution(member_id=member_id, cause_id=cause_id, amount=amount,
+        payment_method=payment_method, transaction_ref=transaction_ref, date_paid=dp, notes=notes))
     await db.commit()
-    return await member_detail(member_id, db, user)
+    return await member_detail(member_id, request, db, user)
 
 
 # Causes
@@ -209,7 +244,8 @@ async def cause_create(name: str = Form(...), db: AsyncSession = Depends(get_db)
 @app.get("/contributions", response_class=HTMLResponse)
 async def contribution_list(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     result = await db.execute(select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause)).order_by(desc(Contribution.date_paid)).limit(200))
-    return render("contributions.html", user=user, request=request, contributions=result.scalars().all())
+    causes = (await db.execute(select(ContributionCause).order_by(ContributionCause.name))).scalars().all()
+    return render("contributions.html", user=user, request=request, contributions=result.scalars().all(), causes=causes)
 
 
 # Export CSV
@@ -282,6 +318,68 @@ async def export_excel(request: Request, db: AsyncSession = Depends(get_db), use
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return Response(content=buf.read(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": "attachment; filename=kh07_contributions.xlsx"})
+
+
+# ── Filtered contributions (HTMX) ──
+@app.get("/contributions/filter", response_class=HTMLResponse)
+async def contributions_filtered(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    cause_id = request.query_params.get("cause_id", "")
+    month = request.query_params.get("month", "")
+    q = select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause))
+    
+    if cause_id and cause_id.isdigit():
+        q = q.where(Contribution.cause_id == int(cause_id))
+    if month and month.isdigit():
+        from sqlalchemy import extract
+        q = q.where(extract("month", Contribution.date_paid) == int(month))
+    
+    q = q.order_by(desc(Contribution.date_paid)).limit(200)
+    result = await db.execute(q)
+    return render("_contrib_table.html", user=user, request=request, contributions=result.scalars().all())
+
+
+# ── Member statement ──
+@app.get("/members/{member_id}/statement", response_class=HTMLResponse)
+async def member_statement(member_id: int, request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    member = await db.get(Member, member_id)
+    if not member:
+        raise HTTPException(status_code=404)
+    
+    contribs = await db.execute(
+        select(Contribution).where(Contribution.member_id == member_id)
+        .options(selectinload(Contribution.cause))
+        .order_by(Contribution.date_paid)
+    )
+    contributions = contribs.scalars().all()
+    
+    total = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)).where(Contribution.member_id == member_id))).scalar() or 0)
+    
+    # Per-cause totals
+    cause_totals = {}
+    for c in contributions:
+        name = c.cause.name
+        cause_totals[name] = cause_totals.get(name, 0) + float(c.amount)
+    
+    return render("statement.html", user=user, request=request, member=member,
+                  contributions=contributions, total=total, cause_totals=cause_totals)
+
+
+# ── Inline edit member name (HTMX) ──
+@app.post("/members/{member_id}/inline-edit")
+async def member_inline_edit(member_id: int, request: Request, field: str = Form(...), value: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+    member = await db.get(Member, member_id)
+    if not member:
+        raise HTTPException(status_code=404)
+    
+    if field == "name":
+        member.name = value.strip()
+    elif field == "phone":
+        member.phone_number = value.strip()
+    elif field == "is_active":
+        member.is_active = value.lower() in ("true", "1", "yes")
+    
+    await db.commit()
+    return HTMLResponse(value.strip() if value.strip() else "—")
 
 
 # Exception handlers

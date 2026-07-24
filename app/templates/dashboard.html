@@ -129,11 +129,35 @@
         </div>
     </div>
 </div>
+
+<div class="row g-4 mt-2">
+    <div class="col-xl-7">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-chart-line me-2" style="color:var(--accent)"></i>Monthly Trends (2026)</div>
+            <div class="card-body">
+                <canvas id="trendsChart" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-5">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-credit-card me-2" style="color:var(--info)"></i>Payment Methods</div>
+            <div class="card-body">
+                {% if method_data %}
+                <div class="summary-row"><span><i class="fas fa-money-bill-wave me-2" style="color:var(--warning)"></i>Cash</span><span class="fw-bold" style="font-family:monospace">KES {{ "{:,.0f}".format(method_data.get('cash', 0)) }}</span></div>
+                <div class="summary-row"><span><i class="fas fa-mobile-alt me-2" style="color:var(--success)"></i>M-Pesa</span><span class="fw-bold" style="font-family:monospace">KES {{ "{:,.0f}".format(method_data.get('mpesa', 0)) }}</span></div>
+                <div class="summary-row"><span><i class="fas fa-university me-2" style="color:var(--info)"></i>Bank</span><span class="fw-bold" style="font-family:monospace">KES {{ "{:,.0f}".format(method_data.get('bank', 0)) }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Per-cause bar chart
     var ctx = document.getElementById('causeChart').getContext('2d');
     new Chart(ctx, {
         type: 'bar',
@@ -156,15 +180,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 tooltip: { callbacks: { label: function(ctx) { return 'KES ' + ctx.parsed.y.toLocaleString(); } } }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { callback: function(v) { return 'KES ' + v.toLocaleString(); }, color: '#8a6f6a' },
-                    grid: { color: 'rgba(45,24,24,.5)' }
-                },
+                y: { beginAtZero: true, ticks: { callback: function(v) { return 'KES ' + v.toLocaleString(); }, color: '#8a6f6a' }, grid: { color: 'rgba(45,24,24,.5)' } },
                 x: { ticks: { maxRotation: 40, color: '#8a6f6a' }, grid: { display: false } }
             }
         }
     });
+
+    // Monthly trends line chart
+    {% if month_labels %}
+    var ctx2 = document.getElementById('trendsChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'line',
+        data: {
+            labels: {{ month_labels|safe }},
+            datasets: [{
+                label: 'Monthly Total (KES)',
+                data: {{ month_data|safe }},
+                borderColor: '#b8433a',
+                backgroundColor: 'rgba(184,67,58,.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: '#b8433a',
+                pointRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: function(ctx) { return 'KES ' + ctx.parsed.y.toLocaleString(); } } }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { callback: function(v) { return 'KES ' + v.toLocaleString(); }, color: '#8a6f6a' }, grid: { color: 'rgba(45,24,24,.5)' } },
+                x: { ticks: { color: '#8a6f6a' }, grid: { display: false } }
+            }
+        }
+    });
+    {% endif %}
 });
 </script>
 {% endblock %}

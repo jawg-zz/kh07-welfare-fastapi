@@ -49,6 +49,8 @@ class Contribution(Base):
     member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), nullable=False, index=True)
     cause_id: Mapped[int] = mapped_column(ForeignKey("contribution_causes.id", ondelete="CASCADE"), nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(SQLDecimal(10, 2), nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(20), default="cash", index=True)
+    transaction_ref: Mapped[str] = mapped_column(String(100), default="")
     date_paid: Mapped[date] = mapped_column(Date, nullable=False, default=date.today, index=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
