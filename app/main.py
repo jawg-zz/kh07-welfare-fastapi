@@ -104,21 +104,54 @@ async def portal_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/portal/lookup")
-async def portal_lookup(request: Request, phone: str = Form(""), db: AsyncSession = Depends(get_db)):
-    if not phone.strip():
-        return HTMLResponse('<div class="alert alert-danger">Please enter your phone number</div>')
+async def portal_lookup(request: Request, query: str = Form(""), db: AsyncSession = Depends(get_db)):
+    q = query.strip()
+    if not q:
+        return HTMLResponse('<div class="alert alert-danger">Enter a name, phone number, or member number</div>')
     
-    member = (await db.execute(select(Member).where(Member.phone_number == phone.strip()))).scalar_one_or_none()
+    # Try exact matches first
+    member = None
+    members = []
+    
+    # Member number match
+    if q.isdigit():
+        m = (await db.execute(select(Member).where(Member.member_number == int(q)))).scalar_one_or_none()
+        if m: member = m
+    
+    # Phone exact match
     if not member:
-        # Also try partial match
-        members = (await db.execute(select(Member).where(Member.phone_number.contains(phone.strip())).limit(5))).scalars().all()
+        m = (await db.execute(select(Member).where(Member.phone_number == q))).scalar_one_or_none()
+        if m: member = m
+    
+    # Name exact match
+    if not member:
+        m = (await db.execute(select(Member).where(Member.name == q))).scalar_one_or_none()
+        if m: member = m
+    
+    # Partial matches
+    if not member:
+        name_matches = (await db.execute(select(Member).where(Member.name.ilike(f"%{q}%")).limit(8))).scalars().all()
+        phone_matches = (await db.execute(select(Member).where(Member.phone_number.contains(q)).limit(8))).scalars().all()
+        members = list({m.id: m for m in name_matches + phone_matches}.values())  # deduplicate
+        
         if len(members) == 1:
             member = members[0]
-        elif len(members) > 1:
-            return HTMLResponse(f'<div class="alert alert-warning">Multiple members found with that number. Contact admin.</div>')
-        else:
-            return HTMLResponse(f'<div class="alert alert-danger">No member found with phone <strong>{phone.strip()}</strong></div>')
+            members = []
     
+    if not member and not members:
+        return HTMLResponse(f'<div class="alert alert-danger">No member found matching <strong>{q}</strong>. Try searching by name, phone number (e.g. 0712...), or member number.</div>')
+    
+    # Show picker if multiple matches
+    if members and len(members) > 1:
+        rows = "".join(f'<tr hx-post="/portal/lookup" hx-target="#portal-result" hx-swap="innerHTML" hx-vals=\'{{"query": "{m.name}"}}\' style="cursor:pointer"><td>{m.member_number}</td><td>{m.name}</td><td>{m.phone_number or "—"}</td></tr>' for m in members)
+        return HTMLResponse(f'''<div class="card"><div class="card-header"><i class="fas fa-users me-2" style="color:var(--warning)"></i>Multiple members found</div>
+            <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th class="ps-3">#</th><th>Name</th><th>Phone</th></tr></thead><tbody>{rows}</tbody></table>
+            <div class="p-3 text-center text-muted small">Click the matching member above</div></div></div>''')
+    
+    if not member and members:
+        member = members[0]
+    
+    # Get contributions
     contribs = await db.execute(
         select(Contribution).where(Contribution.member_id == member.id)
         .options(selectinload(Contribution.cause))
