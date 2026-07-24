@@ -168,7 +168,7 @@
             </button>
             <div class="collapse navbar-collapse" id="nav">
                 <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/"><i class="fas fa-chart-pie"></i>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}" href="/dashboard"><i class="fas fa-chart-pie"></i>Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link {% if request.url.path == '/import' %}active{% endif %}" href="/import"><i class="fas fa-upload"></i>Import</a></li>
                     <li class="nav-item"><a class="nav-link {% if '/members' in request.url.path %}active{% endif %}" href="/members"><i class="fas fa-users"></i>Members</a></li>
                     <li class="nav-item"><a class="nav-link {% if '/causes' in request.url.path %}active{% endif %}" href="/causes"><i class="fas fa-hand-holding-heart"></i>Causes</a></li>

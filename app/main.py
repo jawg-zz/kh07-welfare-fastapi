@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,7 +61,7 @@ async def check_auth(request: Request):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = ""):
     if get_session_user(request):
-        return RedirectResponse(url="/", status_code=302)
+        return RedirectResponse(url="/dashboard", status_code=302)
     return render("login.html", error=error)
 
 
@@ -69,7 +69,7 @@ async def login_page(request: Request, error: str = ""):
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     if username == "admin" and verify_password(password):
         token = create_session(username)
-        resp = RedirectResponse(url="/", status_code=302)
+        resp = RedirectResponse(url="/dashboard", status_code=302)
         resp.set_cookie(key=SESSION_COOKIE, value=token, max_age=int(SESSION_MAX_AGE.total_seconds()), httponly=True, samesite="lax")
         return resp
     return render("login.html", error="Invalid username or password")
@@ -82,8 +82,59 @@ async def logout(request: Request):
     return resp
 
 
-# Dashboard
+# Landing page (public)
 @app.get("/", response_class=HTMLResponse)
+async def landing_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = get_session_user(request)
+    if user:
+        return RedirectResponse(url="/dashboard", status_code=302)
+    total_members = (await db.execute(select(func.count(Member.id)))).scalar() or 0
+    total_causes = (await db.execute(select(func.count(ContributionCause.id)).where(ContributionCause.is_active == True))).scalar() or 0
+    total_collected = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)))).scalar() or 0)
+    total_contributions = (await db.execute(select(func.count(Contribution.id)))).scalar() or 0
+    active_members = (await db.execute(select(func.count(Member.id)).where(Member.is_active == True))).scalar() or 0
+    return render("landing.html", request=request, total_members=total_members, total_causes=total_causes,
+                  total_collected=total_collected, total_contributions=total_contributions, active_members=active_members)
+
+
+# ── Member self-service portal ──
+@app.get("/portal", response_class=HTMLResponse)
+async def portal_page(request: Request, db: AsyncSession = Depends(get_db)):
+    return render("portal.html", request=request, member=None, contributions=None, total=0, cause_totals={})
+
+
+@app.post("/portal/lookup")
+async def portal_lookup(request: Request, phone: str = Form(""), db: AsyncSession = Depends(get_db)):
+    if not phone.strip():
+        return HTMLResponse('<div class="alert alert-danger">Please enter your phone number</div>')
+    
+    member = (await db.execute(select(Member).where(Member.phone_number == phone.strip()))).scalar_one_or_none()
+    if not member:
+        # Also try partial match
+        members = (await db.execute(select(Member).where(Member.phone_number.contains(phone.strip())).limit(5))).scalars().all()
+        if len(members) == 1:
+            member = members[0]
+        elif len(members) > 1:
+            return HTMLResponse(f'<div class="alert alert-warning">Multiple members found with that number. Contact admin.</div>')
+        else:
+            return HTMLResponse(f'<div class="alert alert-danger">No member found with phone <strong>{phone.strip()}</strong></div>')
+    
+    contribs = await db.execute(
+        select(Contribution).where(Contribution.member_id == member.id)
+        .options(selectinload(Contribution.cause))
+        .order_by(desc(Contribution.date_paid)))
+    contributions = contribs.scalars().all()
+    total = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)).where(Contribution.member_id == member.id))).scalar() or 0)
+    cause_totals = {}
+    for c in contributions:
+        name = c.cause.name
+        cause_totals[name] = cause_totals.get(name, 0) + float(c.amount)
+    
+    return render("portal.html", request=request, member=member, contributions=contributions, total=total, cause_totals=cause_totals)
+
+
+# Dashboard (requires auth)
+@app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     user = get_session_user(request)
     if not user:
@@ -598,4 +649,4 @@ async def not_found(request: Request, exc):
 async def server_error(request: Request, exc):
     import traceback
     traceback.print_exc()
-    return RedirectResponse(url="/")
+    return RedirectResponse(url="/dashboard")
