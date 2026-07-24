@@ -10,17 +10,17 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
         :root {
-            --bg-primary: #0d0808;
-            --bg-card: #1a1010;
-            --bg-nav: #120a0a;
-            --border: #2d1818;
-            --accent: #b8433a;
-            --accent-hover: #d14d42;
-            --text: #e8d5d0;
-            --text-muted: #8a6f6a;
-            --success: #2d8a4e;
-            --info: #3a7bb8;
-            --warning: #b88a3a;
+            --bg-primary: #051A0E;
+            --bg-card: #0A2E1A;
+            --bg-nav: #071A0F;
+            --border: #5C4200;
+            --accent: #A81218;
+            --accent-hover: #CC161E;
+            --text: #FDFBF7;
+            --text-muted: #AD8A40;
+            --success: #2D8A4E;
+            --info: #3A7BB8;
+            --warning: #FFC700;
         }
         * { box-sizing: border-box; }
         body {
@@ -114,17 +114,17 @@
         a { color: var(--accent); text-decoration: none; }
         a:hover { color: var(--accent-hover); text-decoration: underline; }
         .form-control, .form-select {
-            background: #120a0a; border: 1px solid var(--border);
+            background: var(--bg-nav); border: 1px solid var(--border);
             color: var(--text); border-radius: 8px;
         }
         .form-control:focus, .form-select:focus {
-            background: #120a0a; border-color: var(--accent);
-            box-shadow: 0 0 0 .2rem rgba(184, 67, 58, .2); color: var(--text);
+            background: var(--bg-nav); border-color: var(--accent);
+            box-shadow: 0 0 0 .2rem rgba(168, 18, 24, .2); color: var(--text);
         }
         .form-label { font-size: .85rem; color: var(--text-muted); margin-bottom: .3rem; }
         .badge-active { background: rgba(45, 138, 78, .15); color: var(--success); }
         .badge-inactive { background: rgba(138, 106, 106, .15); color: var(--text-muted); }
-        .progress-thin { height: 6px; border-radius: 3px; background: #2d1818; }
+        .progress-thin { height: 6px; border-radius: 3px; background: var(--border); }
         .progress-thin .progress-bar { background: var(--accent); }
         .rank-badge {
             display: inline-flex; align-items: center; justify-content: center;
@@ -140,7 +140,7 @@
             padding: .5rem 0; border-bottom: 1px solid var(--border);
         }
         .summary-row:last-child { border-bottom: none; }
-        .search-box { background: #120a0a; border: 1px solid var(--border); border-radius: 8px; padding: .5rem 1rem; color: var(--text); }
+        .search-box { background: var(--bg-nav); border: 1px solid var(--border); border-radius: 8px; padding: .5rem 1rem; color: var(--text); }
         .search-box:focus { border-color: var(--accent); outline: none; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-primary); }
