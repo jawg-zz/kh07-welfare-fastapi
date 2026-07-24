@@ -997,6 +997,7 @@ async def audit_page(request: Request, user: str = Depends(require_auth)):
 # ── Old route redirects ──
 _OLD_ROUTES = {
     "/dashboard": "/overview", "/dashboard/stats": "/overview/stats",
+    "/overview": "/alumni", "/overview/stats": "/alumni",
     "/import": "/bulk-upload",
     "/members": "/alumni", "/members/new": "/alumni/register",
     "/causes": "/welfare-causes", "/causes/new": "/welfare-causes/new",
