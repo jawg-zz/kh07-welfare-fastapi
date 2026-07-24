@@ -163,7 +163,49 @@ async def portal_lookup(request: Request, query: str = Form(""), db: AsyncSessio
         name = c.cause.name
         cause_totals[name] = cause_totals.get(name, 0) + float(c.amount)
     
-    return render("portal.html", request=request, member=member, contributions=contributions, total=total, cause_totals=cause_totals)
+    # Get active causes for portal display
+    active_causes = (await db.execute(
+        select(ContributionCause, func.coalesce(func.sum(Contribution.amount), 0).label("raised"))
+        .outerjoin(Contribution, ContributionCause.id == Contribution.cause_id)
+        .where(ContributionCause.is_active == True)
+        .group_by(ContributionCause.id)
+        .order_by(ContributionCause.name)
+    )).all()
+    cause_list = []
+    for cause, raised in active_causes:
+        target = float(cause.target_amount or 0)
+        cause_list.append({
+            "name": cause.name,
+            "raised": float(raised),
+            "target": target,
+            "progress": (float(raised) / target * 100) if target > 0 else 0,
+        })
+    
+    return render("portal.html", request=request, member=member, contributions=contributions,
+                  total=total, cause_totals=cause_totals, causes=cause_list)
+
+
+@app.post("/portal/update-phone")
+async def portal_update_phone(request: Request, member_id: int = Form(...), phone: str = Form(""), db: AsyncSession = Depends(get_db)):
+    member = await db.get(Member, member_id)
+    if not member:
+        return HTMLResponse('<div class="alert alert-danger">Member not found</div>')
+    member.phone_number = phone.strip()
+    await db.commit()
+    return HTMLResponse(f'<div class="alert alert-success"><i class="fas fa-check-circle me-1"></i>Phone updated to <strong>{phone.strip()}</strong></div>')
+
+
+@app.get("/portal/suggest-cause", response_class=HTMLResponse)
+async def portal_suggest_cause(request: Request):
+    return render("portal_suggest.html", request=request)
+
+
+@app.post("/portal/suggest-cause")
+async def portal_suggest_submit(request: Request, name: str = Form(...), reason: str = Form(""), db: AsyncSession = Depends(get_db)):
+    cause = ContributionCause(name=f"[Suggestion] {name.strip()}", is_active=False)
+    db.add(cause)
+    await db.commit()
+    return HTMLResponse(f'<div class="alert alert-success"><i class="fas fa-check-circle me-1"></i>Your suggestion for "<strong>{name.strip()}</strong>" has been submitted for admin review.</div>')
 
 
 # Dashboard (requires auth)

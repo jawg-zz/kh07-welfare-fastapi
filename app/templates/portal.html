@@ -2,16 +2,18 @@
 {% block title %}Member Portal — KH07 Welfare{% endblock %}
 {% block content %}
 
-<div class="row justify-content-center mt-4">
-    <div class="col-md-7">
+<div class="row justify-content-center mt-3">
+    <div class="col-md-8">
+        <div class="text-center mb-3">
+            <h5 class="mb-1"><i class="fas fa-search" style="color:var(--accent)"></i> Member Self-Service Portal</h5>
+            <p class="text-muted small mb-0">Find your record and manage your information</p>
+        </div>
+
         <div class="card mb-4">
-            <div class="card-body text-center">
-                <i class="fas fa-search" style="font-size:2rem;color:var(--accent);margin-bottom:.5rem;"></i>
-                <h5 class="mb-1">Check Your Contributions</h5>
-                <p class="text-muted small mb-3">Search by your <strong>name</strong>, <strong>phone number</strong>, or <strong>member number</strong>.</p>
+            <div class="card-body">
                 <form hx-post="/portal/lookup" hx-target="#portal-result" hx-swap="innerHTML" class="row g-2 justify-content-center">
                     <div class="col-auto" style="min-width:280px;">
-                        <input type="text" name="query" class="form-control" placeholder="Name, phone (e.g. 0712...), or #" required autofocus>
+                        <input type="text" name="query" class="form-control" placeholder="Name, phone (e.g. 0712...), or #" required>
                     </div>
                     <div class="col-auto">
                         <button type="submit" class="btn btn-accent"><i class="fas fa-search me-1"></i>Search <span class="spinner htmx-indicator"></span></button>
@@ -19,88 +21,129 @@
                 </form>
             </div>
         </div>
+
         <div id="portal-result">
             {% if member %}
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <span><i class="fas fa-user me-2" style="color:var(--accent)"></i><strong>{{ member.name }}</strong></span>
-                    <span class="text-muted small">#{{ member.member_number }}{% if member.phone_number %} · {{ member.phone_number }}{% endif %}</span>
+            <!-- ── Member Info Card ── -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-user me-2" style="color:var(--accent)"></i>Welcome, {{ member.name }}</span>
+                    <span class="badge badge-active">#{{ member.member_number }}</span>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center mb-3 g-2">
-                        <div class="col-6">
-                            <div class="stat-box" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
-                                <div class="fw-bold" style="font-size:1.4rem;color:var(--accent);font-family:monospace">KES {{ "{:,.0f}".format(total) }}</div>
-                                <small class="text-muted">Total Contributed</small>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="fas fa-phone" style="color:var(--accent);width:1.2rem"></i>
+                                <span id="phone-display">{{ member.phone_number or 'Not set' }}</span>
+                                <button class="btn btn-link btn-sm p-0 text-muted" onclick="document.getElementById('phone-form').classList.toggle('d-none'); this.classList.toggle('d-none')"><i class="fas fa-edit"></i></button>
                             </div>
+                            <form id="phone-form" class="d-none row g-1" hx-post="/portal/update-phone" hx-target="#phone-result" hx-swap="innerHTML">
+                                <input type="hidden" name="member_id" value="{{ member.id }}">
+                                <div class="col-8">
+                                    <input type="text" name="phone" class="form-control form-control-sm" placeholder="New phone number" value="{{ member.phone_number or '' }}">
+                                </div>
+                                <div class="col-4">
+                                    <button type="submit" class="btn btn-accent btn-sm w-100">Save</button>
+                                </div>
+                                <div id="phone-result" class="col-12"></div>
+                            </form>
                         </div>
-                        <div class="col-6">
-                            <div class="stat-box" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
-                                <div class="fw-bold" style="font-size:1.4rem;font-family:monospace">{{ contributions|length }}</div>
-                                <small class="text-muted">Contributions</small>
-                            </div>
+                        <div class="col-md-6 text-md-end">
+                            <div class="small text-muted">Total Contributed</div>
+                            <div class="fw-bold" style="font-size:1.3rem;color:var(--accent);font-family:monospace">KES {{ "{:,.0f}".format(total) }}</div>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    {% if cause_totals %}
-                    <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:1rem;">
-                        {% for name, amt in cause_totals.items() %}
-                        <div class="d-flex justify-content-between py-1" style="border-bottom:1px solid var(--border);">
-                            <span class="small">{{ name }}</span>
-                            <span class="fw-bold small" style="font-family:monospace">KES {{ "{:,.0f}".format(amt) }}</span>
+            <!-- ── Active Causes ── -->
+            {% if causes %}
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-hand-holding-heart me-2" style="color:var(--success)"></i>Active Welfare Causes</div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for cause in causes %}
+                        <div class="col-md-6">
+                            <div class="p-2 rounded" style="background:var(--bg-nav);border:1px solid var(--border-light)">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="small fw-bold">{{ cause.name|truncate(30) }}</span>
+                                    <span class="small text-muted">KES {{ "{:,.0f}".format(cause.raised) }}{% if cause.target > 0 %} / KES {{ "{:,.0f}".format(cause.target) }}{% endif %}</span>
+                                </div>
+                                <div class="progress-thin">
+                                <div class="progress-bar {% if cause.progress >= 100 %}bg-success{% endif %}" style="width:{% if cause.progress > 100 %}100{% else %}{{ cause.progress }}{% endif %}%"></div>
+                                </div>
+                            </div>
                         </div>
                         {% endfor %}
-                        <div class="d-flex justify-content-between py-1 fw-bold">
-                            <span>Total</span>
-                            <span style="color:var(--accent);font-family:monospace">KES {{ "{:,.0f}".format(total) }}</span>
-                        </div>
                     </div>
-                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
 
-                    {% if contributions %}
+            <!-- ── Per-Cause Breakdown ── -->
+            {% if cause_totals %}
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-chart-pie me-2" style="color:var(--warning)"></i>Your Contributions by Cause</div>
+                <div class="card-body">
+                    {% for name, amount in cause_totals.items() %}
+                    <div class="summary-row">
+                        <span>{{ name }}</span>
+                        <span class="fw-bold" style="color:var(--success);font-family:monospace">KES {{ "{:,.0f}".format(amount) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ── Contribution History ── -->
+            {% if contributions %}
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-receipt me-2" style="color:var(--info)"></i>Contribution History</span>
+                    <a href="/members/{{ member.id }}/statement" class="btn btn-outline-accent btn-sm" target="_blank"><i class="fas fa-print me-1"></i>Statement</a>
+                </div>
+                <div class="card-body p-0">
                     <div class="table-responsive-custom">
-                        <table class="table table-sm mb-0">
+                        <table class="table table-hover mb-0">
                             <thead><tr>
-                                <th>Date</th>
+                                <th class="ps-3">Date</th>
                                 <th>Cause</th>
                                 <th class="text-end">Amount</th>
                                 <th>Method</th>
-                                <th></th>
+                                <th class="pe-3">Receipt</th>
                             </tr></thead>
                             <tbody>
                                 {% for c in contributions %}
                                 <tr>
-                                    <td class="text-nowrap">{{ c.date_paid }}</td>
+                                    <td class="ps-3">{{ c.date_paid }}</td>
                                     <td>{{ c.cause.name }}</td>
-                                    <td class="text-end text-nowrap" style="font-family:monospace">KES {{ "{:,.0f}".format(c.amount) }}</td>
+                                    <td class="text-end fw-bold" style="font-family:monospace;color:var(--success)">KES {{ "{:,.0f}".format(c.amount) }}</td>
                                     <td><span class="small" style="text-transform:uppercase;">{{ c.payment_method }}</span></td>
-                                    <td class="text-end"><a href="/receipt/{{ c.id }}" class="text-muted small" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a></td>
+                                    <td class="pe-3">
+                                        <a href="/receipt/{{ c.id }}" class="text-muted small me-1" target="_blank" title="Receipt"><i class="fas fa-receipt"></i></a>
+                                        <a href="/receipt/{{ c.id }}/pdf" class="text-muted small" target="_blank" title="PDF"><i class="fas fa-file-pdf"></i></a>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-3 d-flex gap-2">
-                        <button class="btn btn-outline-accent btn-sm flex-grow-1" onclick="window.print()"><i class="fas fa-print me-1"></i>Print Statement</button>
-                        <a href="/portal" class="btn btn-outline-accent btn-sm"><i class="fas fa-search me-1"></i>New Search</a>
-                    </div>
-                    {% else %}
-                    <div class="text-center text-muted py-3">No contributions recorded</div>
-                    {% endif %}
                 </div>
             </div>
             {% endif %}
+
+            <!-- ── Quick Actions ── -->
+            <div class="d-flex gap-2 justify-content-center mb-4">
+                <a href="/portal/suggest-cause" class="btn btn-outline-accent btn-sm"><i class="fas fa-lightbulb me-1"></i>Suggest a Cause</a>
+                <button onclick="document.getElementById('portal-result').innerHTML='';document.querySelector('input[name=query]').value='';document.querySelector('input[name=query]').focus()" class="btn btn-outline-accent btn-sm"><i class="fas fa-redo me-1"></i>New Search</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="text-center mb-3">
+            <a href="/" class="text-muted small"><i class="fas fa-arrow-left me-1"></i>Back to Home</a>
         </div>
     </div>
 </div>
-
-<style>
-@media print {
-    .navbar, .footer, .btn-outline-accent, form { display: none !important; }
-    .card { border: none !important; box-shadow: none !important; }
-    body { background: #fff !important; color: #000 !important; }
-    .text-muted { color: #666 !important; }
-}
-.stat-box .value { line-height: 1.2; }
-</style>
 {% endblock %}

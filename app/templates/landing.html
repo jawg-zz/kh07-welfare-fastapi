@@ -191,6 +191,20 @@
         .benefit h5 { font-size: .85rem; font-weight: 600; margin-bottom: .2rem; }
         .benefit p { font-size: .78rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
 
+        /* Portal CTA */
+        .portal-cta {
+            display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+        .portal-feature {
+            display: flex; align-items: center; gap: .5rem;
+            padding: .5rem .85rem; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 10px;
+            font-size: .82rem; transition: border-color .2s;
+        }
+        .portal-feature:hover { border-color: var(--accent); }
+        .portal-feature i { color: var(--success); font-size: .8rem; }
+
         /* CTA Section */
         .cta-section {
             background: linear-gradient(135deg, var(--accent-glow), transparent);
@@ -290,7 +304,7 @@
             </div>
 
             <div class="btn-group">
-                <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>View My Contributions</a>
+                <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
                 <div class="cta-divider"><span>or</span></div>
                 <a href="/login" class="btn btn-secondary-cta"><i class="fas fa-shield-alt me-1"></i>Admin Login</a>
             </div>
@@ -370,9 +384,15 @@
 
             <div class="cta-section">
                 <h3>Already a member?</h3>
-                <p>Check your contributions in seconds — no login required.</p>
-                <div class="btn-group" style="margin-bottom:0;">
-                    <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>View My Contributions</a>
+                <p>Check your contributions, update your phone, view active causes — no login required.</p>
+                <div class="portal-cta">
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> View contributions</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Update phone</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Track causes</div>
+                    <div class="portal-feature"><i class="fas fa-check-circle"></i> Suggest new cause</div>
+                </div>
+                <div class="btn-group" style="margin-bottom:0;margin-top:1.25rem;">
+                    <a href="/portal" class="btn btn-primary-cta"><i class="fas fa-search me-2"></i>Open Self-Service Portal</a>
                 </div>
             </div>
         </div>

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Suggest a Cause — KH07 Welfare{% endblock %}
+{% block content %}
+
+<div class="page-title"><i class="fas fa-lightbulb"></i>Suggest a Welfare Cause</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <p class="text-muted small mb-3">Have a member in need? Submit a cause suggestion for admin review.</p>
+                <form hx-post="/portal/suggest-cause" hx-target="#result" hx-swap="innerHTML">
+                    <div class="mb-3">
+                        <label class="form-label">Cause Name</label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. Medical support for ..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason / Details</label>
+                        <textarea name="reason" class="form-control" rows="3" placeholder="Brief description..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-accent"><i class="fas fa-paper-plane me-1"></i>Submit Suggestion</button>
+                    <a href="/portal" class="btn btn-outline-accent ms-2"><i class="fas fa-arrow-left me-1"></i>Back</a>
+                </form>
+                <div id="result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
