@@ -175,21 +175,5 @@ async def require_auth(request: Request):
     return user
 
 
-async def require_admin(request: Request, db: AsyncSession = Depends(get_db)):
-    """Dependency: require admin role (legacy — use require_permission instead)."""
-    user = await get_current_user(request, db)
-    if not user or user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
-    return user
-
-
-async def require_viewer(request: Request, db: AsyncSession = Depends(get_db)):
-    """Dependency: require any authenticated user."""
-    user = await get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
-    return user
-
-
 async def maybe_user(request: Request) -> str | None:
     return get_session_user(request)
