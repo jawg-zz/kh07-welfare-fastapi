@@ -359,6 +359,16 @@
         .amount-chip { border-radius: 20px !important; padding: .25rem .85rem !important; font-size: .8rem !important; font-weight: 600 !important; }
         .amount-chip.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
 
+        /* ── Smart Phone Input ── */
+        .phone-input.is-valid { border-color: var(--success) !important; }
+        .phone-input.is-valid ~ .phone-status { color: var(--success); }
+        .phone-input.is-invalid { border-color: var(--danger) !important; }
+        .phone-input.is-invalid ~ .phone-status { color: var(--danger); }
+        .phone-status .fa-check-circle { color: var(--success); }
+        .phone-status .fa-times-circle { color: var(--danger); }
+        .phone-clear { border-radius: 0 !important; border-left: none !important; }
+        .phone-clear:hover { color: var(--accent) !important; }
+
         /* ── Scrollbar ── */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-primary); }
@@ -560,6 +570,175 @@
         });
         document.body.addEventListener('htmx:responseError', function(evt) {
             showToast('An error occurred', 'error');
+        });
+
+        // ── Smart Phone Input ──
+        // Converts any Kenyan phone format to 254XXXXXXXXX
+        // Format accepted: 0712345678, +254712345678, 254712345678, 712345678
+        function formatPhone(input) {
+            // Remove all non-digits
+            var digits = input.replace(/\D/g, '');
+            
+            // Detect format and normalize to 254XXXXXXXXX
+            if (digits.length === 0) return {raw: '', display: '', full: '', valid: false};
+            
+            var full = '';
+            var display = '';
+            var valid = false;
+            var hint = '';
+            
+            if (digits.startsWith('254') && digits.length === 12) {
+                // Already in 254 format
+                full = digits;
+                display = '0' + digits.slice(3, 6) + ' ' + digits.slice(6, 9) + ' ' + digits.slice(9);
+                valid = true;
+                hint = '✅ Valid Kenyan number';
+            } else if (digits.startsWith('0') && digits.length === 10) {
+                // 0712345678 format
+                full = '254' + digits.slice(1);
+                display = digits.slice(0, 4) + ' ' + digits.slice(4, 7) + ' ' + digits.slice(7);
+                valid = true;
+                hint = '✅ Will send as +254 ' + digits.slice(1, 4) + ' ' + digits.slice(4, 7) + ' ' + digits.slice(7);
+            } else if (digits.startsWith('2547') && digits.length > 9 && digits.length < 12) {
+                // Partial 254 format — still typing
+                full = digits;
+                var sub = digits.slice(3);
+                display = '0' + sub.slice(0, 3) + ' ' + sub.slice(3, 6) + (sub.length > 6 ? ' ' + sub.slice(6) : '');
+                valid = sub.length === 9;
+                hint = valid ? '✅ Valid' : '⏳ Need 9 digits after 254';
+            } else if (digits.length >= 9 && !digits.startsWith('0') && !digits.startsWith('254')) {
+                // Just the 9-digit number (712345678) — auto-prepend 254
+                if (digits.length === 9) {
+                    full = '254' + digits;
+                    display = '0' + digits.slice(0, 3) + ' ' + digits.slice(3, 6) + ' ' + digits.slice(6);
+                    valid = true;
+                    hint = '✅ Will send as +254 ' + digits.slice(0, 3) + ' ' + digits.slice(3, 6) + ' ' + digits.slice(6);
+                } else {
+                    full = '';
+                    display = digits;
+                    valid = false;
+                    hint = '❌ Enter 9 digits after +254';
+                }
+            } else if (digits.startsWith('0') && digits.length < 10) {
+                // Partial 0 format — still typing
+                full = '';
+                display = digits;
+                valid = false;
+                hint = '⏳ Need ' + (10 - digits.length) + ' more digits';
+            } else if (digits.startsWith('2547') && digits.length > 12) {
+                full = '';
+                display = digits;
+                valid = false;
+                hint = '❌ Too many digits';
+            } else if (digits.startsWith('254') && digits.length < 12 && digits.length > 3) {
+                full = '';
+                display = digits;
+                valid = false;
+                hint = '⏳ Need ' + (12 - digits.length) + ' more digits';
+            } else {
+                full = '';
+                display = digits;
+                valid = false;
+                hint = 'Enter 0712 345 678 or +254 712 345 678';
+            }
+            
+            return {raw: input, display: display, full: full, valid: valid, hint: hint};
+        }
+
+        function initPhoneInput(displayId, hiddenId, statusId, clearId) {
+            var display = document.getElementById(displayId);
+            if (!display) return;
+            
+            var hidden = document.getElementById(hiddenId);
+            var status = document.getElementById(statusId);
+            var clear = document.getElementById(clearId);
+            
+            function update() {
+                var result = formatPhone(display.value);
+                
+                // Show formatted display text
+                if (result.display) {
+                    display.value = result.display;
+                }
+                
+                // Update hidden field
+                hidden.value = result.full;
+                
+                // Update status
+                if (status) {
+                    if (!display.value) {
+                        status.innerHTML = '<i class=\"fas fa-info-circle text-muted me-1\"></i>0712 345 678 or +254 712 345 678';
+                        display.className = 'form-control phone-input';
+                    } else if (result.valid) {
+                        status.innerHTML = '<i class=\"fas fa-check-circle me-1\"></i>' + result.hint;
+                        display.className = 'form-control phone-input is-valid';
+                    } else {
+                        status.innerHTML = '<i class=\"fas fa-times-circle me-1\"></i>' + result.hint;
+                        display.className = 'form-control phone-input is-invalid';
+                    }
+                }
+                
+                // Show/hide clear button
+                if (clear) {
+                    clear.style.display = display.value ? '' : 'none';
+                }
+            }
+            
+            display.addEventListener('input', update);
+            display.addEventListener('blur', update);
+            
+            if (clear) {
+                clear.addEventListener('click', function() {
+                    display.value = '';
+                    hidden.value = '';
+                    if (status) {
+                        status.innerHTML = '<i class=\"fas fa-info-circle text-muted me-1\"></i>0712 345 678 or +254 712 345 678';
+                        display.className = 'form-control phone-input';
+                    }
+                    clear.style.display = 'none';
+                    display.focus();
+                });
+            }
+            
+            // Initial validation
+            update();
+        }
+
+        // Auto-init all phone inputs on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.phone-input').forEach(function(el) {
+                var id = el.id;
+                if (!id) return;
+                // Derive companion IDs: phone-display-X → phone-hidden-X, phone-status-X, phone-clear-X
+                var prefix = id.replace('phone-display-', '').replace('portal-phone', '');
+                if (id === 'portal-phone') {
+                    initPhoneInput('portal-phone', 'portal-phone-hidden', 'portal-phone-status', null);
+                } else {
+                    var mid = prefix;
+                    initPhoneInput('phone-display-' + mid, 'phone-hidden-' + mid, 'phone-status-' + mid, 'phone-clear-' + mid);
+                }
+            });
+        });
+
+        // Re-init after HTMX swaps
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            document.querySelectorAll('.phone-input').forEach(function(el) {
+                var id = el.id;
+                if (!id) return;
+                if (id === 'portal-phone') {
+                    // Already initialized — skip if already set up
+                    if (!el._phoneInit) {
+                        el._phoneInit = true;
+                        initPhoneInput('portal-phone', 'portal-phone-hidden', 'portal-phone-status', null);
+                    }
+                } else if (id.startsWith('phone-display-')) {
+                    var mid = id.replace('phone-display-', '');
+                    if (!el._phoneInit) {
+                        el._phoneInit = true;
+                        initPhoneInput('phone-display-' + mid, 'phone-hidden-' + mid, 'phone-status-' + mid, 'phone-clear-' + mid);
+                    }
+                }
+            });
         });
     </script>
     {% block extra_js %}{% endblock %}

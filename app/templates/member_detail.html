@@ -86,12 +86,22 @@
                     <div class="mb-2">
                         <label class="form-label small">Phone Number</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text">+254</span>
-                            <input type="tel" name="phone" class="form-control"
+                            <span class="input-group-text" id="phone-prefix-{{ member.id }}">+254</span>
+                            <input type="tel" class="form-control phone-input" id="phone-display-{{ member.id }}"
+                                   placeholder="712 345 678"
                                    value="{{ member.phone_number[4:] if member.phone_number.startswith('254') else member.phone_number[1:] if member.phone_number.startswith('0') else member.phone_number }}"
-                                   placeholder="712345678" required maxlength="9">
+                                   autocomplete="tel" maxlength="14"
+                                   data-member-id="{{ member.id }}">
+                            <input type="hidden" name="phone" class="phone-hidden" id="phone-hidden-{{ member.id }}"
+                                   value="{{ member.phone_number if member.phone_number else '' }}">
+                            <button type="button" class="btn btn-sm btn-outline-accent phone-clear" 
+                                    id="phone-clear-{{ member.id }}" tabindex="-1" style="display:none">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
-                        <small class="text-muted">Enter number without +254 or 0</small>
+                        <div class="phone-status mt-1 small" id="phone-status-{{ member.id }}">
+                            <i class="fas fa-info-circle text-muted me-1"></i>Any format: <strong>0712 345 678</strong> or <strong>+254 712 345 678</strong>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-accent btn-sm w-100">
                         <i class="fas fa-mobile-alt me-1"></i>Send M-Pesa Request

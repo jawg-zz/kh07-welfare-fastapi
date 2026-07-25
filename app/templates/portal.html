@@ -159,9 +159,15 @@
                                 <label class="form-label small">Phone Number</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">+254</span>
-                                    <input type="tel" name="phone" class="form-control"
+                                    <input type="tel" class="form-control phone-input" id="portal-phone"
+                                           placeholder="712 345 678"
                                            value="{{ member.phone_number[4:] if member.phone_number.startswith('254') else member.phone_number[1:] if member.phone_number.startswith('0') else member.phone_number }}"
-                                           placeholder="712345678" required maxlength="9">
+                                           autocomplete="tel" maxlength="14">
+                                    <input type="hidden" name="phone" class="phone-hidden" id="portal-phone-hidden"
+                                           value="{{ member.phone_number if member.phone_number else '' }}">
+                                </div>
+                                <div class="phone-status mt-1 small" id="portal-phone-status">
+                                    <i class="fas fa-info-circle text-muted me-1"></i>0712 345 678 or +254 712 345 678
                                 </div>
                             </div>
                         </div>
