@@ -401,7 +401,15 @@ async def member_detail(member_id: int, request: Request, db: AsyncSession = Dep
         raise HTTPException(status_code=404)
     contribs = await db.execute(select(Contribution).where(Contribution.member_id == member_id).options(selectinload(Contribution.cause)).order_by(desc(Contribution.date_paid)))
     total = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)).where(Contribution.member_id == member_id))).scalar() or 0)
-    causes = (await db.execute(select(ContributionCause).where(ContributionCause.is_active == True))).scalars().all()
+    causes_raw = (await db.execute(select(ContributionCause).where(ContributionCause.is_active == True))).scalars().all()
+    # Enrich causes with raised amount
+    causes = []
+    for c in causes_raw:
+        raised = float((await db.execute(
+            select(func.coalesce(func.sum(Contribution.amount), 0))
+            .where(Contribution.cause_id == c.id))).scalar() or 0)
+        causes.append({"id": c.id, "name": c.name, "target": float(c.target_amount or 0), "raised": raised,
+                       "progress": round(raised / float(c.target_amount) * 100, 0) if c.target_amount and c.target_amount > 0 else 0})
     return render("member_detail.html", user=user, request=request, member=member, contributions=contribs.scalars().all(), total=total, causes=causes, today=date.today().isoformat())
 
 

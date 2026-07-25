@@ -54,37 +54,82 @@
                 <div id="photo-msg" class="mt-2"></div>
             </div>
         </div>
-
-        <div class="card mt-3">
-            <div class="card-header"><i class="fas fa-mobile-alt" style="color:var(--accent)"></i>M-Pesa Payment</div>
+        <!-- ── M-Pesa Payment Card ── -->
+        <div class="card mt-3" id="mpesa-card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <i class="fas fa-mobile-alt" style="color:var(--accent);font-size:.85rem"></i>
+                </div>
+                <span>M-Pesa Payment</span>
+                <span class="badge ms-auto" style="background:var(--accent-bg);color:var(--accent);font-size:.65rem;font-weight:500">
+                    <i class="fas fa-shield-alt me-1"></i>Secured
+                </span>
+            </div>
             <div class="card-body">
+                <!-- Member context -->
+                <div class="d-flex align-items-center gap-2 mb-3 p-2 rounded" style="background:var(--bg-nav);border:1px solid var(--border-light)">
+                    {% if member.photo %}
+                    <img src="{{ member.photo }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">
+                    {% else %}
+                    <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:var(--accent);flex-shrink:0">{{ member.name[:1] }}</div>
+                    {% endif %}
+                    <div class="small lh-sm">
+                        <div class="fw-semibold">{{ member.name }}</div>
+                        <div class="text-muted">#{{ member.member_number }} · KES {{ "{:,.0f}".format(total) }} total</div>
+                    </div>
+                </div>
+
+                <!-- Quick Amounts -->
                 <div class="mb-3">
-                    <label class="form-label small">Quick Amount</label>
-                    <div class="d-flex gap-1 flex-wrap" id="quick-amounts">
+                    <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Quick Amount</label>
+                    <div class="d-flex gap-1 flex-wrap">
                         <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="500">KES 500</button>
                         <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="1000">KES 1,000</button>
                         <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="2000">KES 2,000</button>
                         <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="5000">KES 5,000</button>
+                        <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="custom">Custom</button>
                     </div>
                 </div>
+
+                <!-- Payment Form -->
                 <form hx-post="/mpesa/stkpush" hx-target="#mpesa-result" hx-swap="innerHTML"
                       hx-indicator="#mpesa-spinner">
                     <input type="hidden" name="member_id" value="{{ member.id }}">
+
+                    <!-- Cause with progress -->
                     <div class="mb-2">
-                        <label class="form-label small">Cause</label>
-                        <select name="cause_id" class="form-select form-select-sm" required>
-                            {% for c in causes %}
-                            <option value="{{ c.id }}">{{ c.name }}</option>
+                        <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Welfare Cause</label>
+                        <select name="cause_id" class="form-select form-select-sm" required id="mpesa-cause">
+                            {% for cause in causes %}
+                            <option value="{{ cause.id }}" data-raised="{{ cause.raised }}" data-target="{{ cause.target }}" data-progress="{{ cause.progress }}">
+                                {{ cause.name }}
+                                {% if cause.target > 0 %}
+                                · {{ "{:,.0f}".format(cause.raised) }} / KES {{ "{:,.0f}".format(cause.target) }}
+                                {% endif %}
+                            </option>
                             {% endfor %}
                         </select>
+                        <div class="mt-1" id="cause-progress" style="display:none">
+                            <div class="progress-thin">
+                                <div class="progress-bar" id="cause-progress-bar" style="width:0%"></div>
+                            </div>
+                            <small class="text-muted" id="cause-progress-text"></small>
+                        </div>
                     </div>
+
+                    <!-- Amount -->
                     <div class="mb-2">
-                        <label class="form-label small">Amount (KES)</label>
-                        <input type="number" name="amount" id="mpesa-amount" class="form-control form-control-sm"
-                               step="1" min="1" placeholder="Enter amount" required>
+                        <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Amount</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text fw-bold" style="color:var(--accent)">KES</span>
+                            <input type="number" name="amount" id="mpesa-amount" class="form-control"
+                                   step="1" min="1" placeholder="0" required>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label small">Phone Number</label>
+
+                    <!-- Phone -->
+                    <div class="mb-3">
+                        <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Phone Number</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text" id="phone-prefix-{{ member.id }}">+254</span>
                             <input type="tel" class="form-control phone-input" id="phone-display-{{ member.id }}"
@@ -94,27 +139,32 @@
                                    data-member-id="{{ member.id }}">
                             <input type="hidden" name="phone" class="phone-hidden" id="phone-hidden-{{ member.id }}"
                                    value="{{ member.phone_number if member.phone_number else '' }}">
-                            <button type="button" class="btn btn-sm btn-outline-accent phone-clear" 
+                            <button type="button" class="btn btn-sm btn-outline-accent phone-clear"
                                     id="phone-clear-{{ member.id }}" tabindex="-1" style="display:none">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
                         <div class="phone-status mt-1 small" id="phone-status-{{ member.id }}">
-                            <i class="fas fa-info-circle text-muted me-1"></i>Any format: <strong>0712 345 678</strong> or <strong>+254 712 345 678</strong>
+                            <i class="fas fa-info-circle text-muted me-1"></i>0712 345 678 or +254 712 345 678
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-accent btn-sm w-100">
-                        <i class="fas fa-mobile-alt me-1"></i>Send M-Pesa Request
+
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-accent w-100" id="mpesa-submit" style="position:relative">
+                        <span id="mpesa-btn-text"><i class="fas fa-mobile-alt me-1"></i>Send M-Pesa Request</span>
+                        <span id="mpesa-spinner" class="htmx-indicator" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--accent);border-radius:8px">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Sending…</span>
+                        </span>
                     </button>
-                    <div id="mpesa-spinner" class="htmx-indicator text-center mt-2">
-                        <div class="spinner-border spinner-border-sm text-accent" role="status"></div>
-                        <small class="text-muted ms-1">Sending payment request…</small>
-                    </div>
                 </form>
+
+                <!-- Payment Status Area -->
                 <div id="mpesa-result" class="mt-2"></div>
             </div>
         </div>
-        
+
+        <!-- ── M-Pesa Payment History ── -->
         {% if member.phone_number %}
         <div class="card mt-3">
             <div class="card-header"><i class="fas fa-history" style="color:var(--info)"></i>M-Pesa Payments</div>
@@ -227,13 +277,41 @@
 
 {% block extra_js %}
 <script>
-// Quick amount chips for M-Pesa
+// Cause progress bar on select change
+var causeSelect = document.getElementById('mpesa-cause');
+var causeProgress = document.getElementById('cause-progress');
+var causeBar = document.getElementById('cause-progress-bar');
+var causeText = document.getElementById('cause-progress-text');
+if (causeSelect) {
+    function updateCauseProgress() {
+        var opt = causeSelect.options[causeSelect.selectedIndex];
+        if (opt && parseFloat(opt.dataset.target) > 0) {
+            causeProgress.style.display = '';
+            var pct = Math.min(parseFloat(opt.dataset.progress), 100);
+            causeBar.style.width = pct + '%';
+            causeText.textContent = 'KES ' + Number(opt.dataset.raised).toLocaleString() + ' raised of KES ' + Number(opt.dataset.target).toLocaleString();
+        } else {
+            causeProgress.style.display = 'none';
+        }
+    }
+    causeSelect.addEventListener('change', updateCauseProgress);
+    updateCauseProgress();
+}
+
+// Quick amount chips
 document.querySelectorAll('.amount-chip').forEach(function(btn) {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.amount-chip').forEach(function(b) { b.classList.remove('active'); });
         this.classList.add('active');
         var amtInput = document.getElementById('mpesa-amount');
-        if (amtInput) amtInput.value = this.dataset.amount;
+        if (amtInput) {
+            if (this.dataset.amount === 'custom') {
+                amtInput.value = '';
+                amtInput.focus();
+            } else {
+                amtInput.value = this.dataset.amount;
+            }
+        }
     });
 });
 // HTMX: after successful form submission, refresh the contributions list

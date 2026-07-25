@@ -137,26 +137,47 @@
             <!-- ── M-Pesa Payment (Self-Service) ── -->
             {% if causes %}
             <div class="card mb-3">
-                <div class="card-header"><i class="fas fa-mobile-alt" style="color:var(--accent)"></i>Make a Payment</div>
+                <div class="card-header d-flex align-items-center gap-2">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="fas fa-mobile-alt" style="color:var(--accent);font-size:.75rem"></i>
+                    </div>
+                    <span>Make a Payment</span>
+                    <span class="badge ms-auto" style="background:var(--accent-bg);color:var(--accent);font-size:.6rem;font-weight:500">
+                        <i class="fas fa-shield-alt me-1"></i>Secured
+                    </span>
+                </div>
                 <div class="card-body">
+                    <!-- Member banner -->
+                    <div class="d-flex align-items-center gap-2 mb-3 p-2 rounded" style="background:var(--bg-nav);border:1px solid var(--border-light)">
+                        <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;color:var(--accent);flex-shrink:0">{{ member.name[:1] }}</div>
+                        <div class="small lh-sm">
+                            <div class="fw-semibold">{{ member.name }}</div>
+                            <div class="text-muted">#{{ member.member_number }} · KES {{ "{:,.0f}".format(total) }} total</div>
+                        </div>
+                    </div>
                     <form hx-post="/self-service/mpesa-pay" hx-target="#portal-mpesa-result" hx-swap="innerHTML"
                           hx-indicator="#portal-mpesa-spinner">
                         <input type="hidden" name="member_id" value="{{ member.id }}">
                         <div class="mb-2">
-                            <label class="form-label small">Cause</label>
+                            <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Welfare Cause</label>
                             <select name="cause_id" class="form-select form-select-sm" required>
                                 {% for cause in causes %}
-                                <option value="{{ cause.id }}">{{ cause.name }}</option>
+                                <option value="{{ cause.id }}">
+                                    {{ cause.name }}{% if cause.target > 0 %} · KES {{ "{:,.0f}".format(cause.raised) }} / KES {{ "{:,.0f}".format(cause.target) }}{% endif %}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="row g-2 mb-2">
                             <div class="col-6">
-                                <label class="form-label small">Amount (KES)</label>
-                                <input type="number" name="amount" class="form-control form-control-sm" step="1" min="1" placeholder="500" required>
+                                <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Amount</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text fw-bold" style="color:var(--accent)">KES</span>
+                                    <input type="number" name="amount" class="form-control" step="1" min="1" placeholder="0" required>
+                                </div>
                             </div>
                             <div class="col-6">
-                                <label class="form-label small">Phone Number</label>
+                                <label class="form-label small text-muted text-uppercase" style="font-size:.65rem;letter-spacing:.5px">Phone</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">+254</span>
                                     <input type="tel" class="form-control phone-input" id="portal-phone"
@@ -171,13 +192,13 @@
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-accent btn-sm w-100">
-                            <i class="fas fa-mobile-alt me-1"></i>Pay via M-Pesa
+                        <button type="submit" class="btn btn-accent btn-sm w-100" style="position:relative">
+                            <span id="portal-btn-text"><i class="fas fa-mobile-alt me-1"></i>Pay via M-Pesa</span>
+                            <span id="portal-mpesa-spinner" class="htmx-indicator" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--accent);border-radius:8px">
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                <span>Sending…</span>
+                            </span>
                         </button>
-                        <div id="portal-mpesa-spinner" class="htmx-indicator text-center mt-2">
-                            <div class="spinner-border spinner-border-sm text-accent" role="status"></div>
-                            <small class="text-muted ms-1">Sending payment request…</small>
-                        </div>
                     </form>
                     <div id="portal-mpesa-result" class="mt-2"></div>
                 </div>
