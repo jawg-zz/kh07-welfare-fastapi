@@ -34,7 +34,7 @@ def _decode_session(token: str) -> tuple | None:
         return None
     payload = f"{parts[0]}.{parts[1]}.{parts[2]}"
     expected_sig = _sign(payload)
-    if not hmac.compare_digest(parts[2], expected_sig):
+    if not hmac.compare_digest(parts[3], expected_sig):
         return None
     return parts[1], parts[2]
 
