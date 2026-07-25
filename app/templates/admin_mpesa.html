@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>M-Pesa Settings — KH07 Welfare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        :root {
+            --bg-primary: #0C0F1A; --bg-card: #161B28; --bg-nav: #111522;
+            --border: #252B3D; --accent: #E8826C; --text: #EDE8E0; --text-muted: #7C8196;
+            --success: #5DBB8A; --warning: #F4C97C; --danger: #E06C6C;
+        }
+        body { background: var(--bg-primary); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
+        .navbar { background: var(--bg-nav) !important; border-bottom: 1px solid var(--border); backdrop-filter: blur(10px); }
+        .navbar-brand { font-weight: 800; font-size: 1.25rem; color: var(--text) !important; }
+        .navbar-brand i { color: var(--accent); margin-right: .5rem; }
+        .container { max-width: 720px; margin-top: 2rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
+        .card-header { background: transparent; border-bottom: 1px solid var(--border); padding: 1.25rem 1.5rem; font-weight: 700; font-size: 1.1rem; }
+        .card-header i { color: var(--accent); margin-right: .6rem; }
+        .card-body { padding: 1.5rem; }
+        .form-label { color: var(--text-muted); font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+        .form-control, .form-select { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text); border-radius: 8px; }
+        .form-control:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 .2rem rgba(232,130,108,.15); }
+        .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+        .btn-accent { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: .5rem 1.5rem; }
+        .btn-accent:hover { opacity: .9; color: #fff; }
+        .text-muted { color: var(--text-muted) !important; }
+        .alert { border-radius: 10px; border: none; }
+        .alert-success { background: rgba(93,187,138,.1); color: var(--success); }
+        .alert-info { background: rgba(107,147,201,.1); color: #6B93C9; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { color: var(--accent); text-decoration: underline; }
+        .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+        .page-title i { color: var(--accent); margin-right: .6rem; }
+        .input-group-text { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-muted); }
+        hr { border-color: var(--border); }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="/overview"><i class="fas fa-people-arrows"></i>KH07 Welfare</a>
+        <div class="ms-auto d-flex align-items-center gap-3">
+            <a href="/overview" class="nav-link text-muted"><i class="fas fa-chart-pie me-1"></i>Dashboard</a>
+            <span class="text-muted small"><i class="fas fa-user-shield me-1"></i>{{ user }}</span>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="page-title"><i class="fas fa-money-bill-wave"></i>M-Pesa Settings</div>
+
+    {% if not cfg or not cfg.consumer_key %}
+    <div class="alert alert-info mb-3">
+        <i class="fas fa-info-circle me-1"></i>M-Pesa is not configured yet. Fill in the fields below to enable
+        STK Push (Lipa na M-Pesa) payments. Get your API keys from 
+        <a href="https://developer.safaricom.co.ke" target="_blank">Safaricom Developer Portal</a>.
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header"><i class="fas fa-key"></i>API Credentials</div>
+        <div class="card-body">
+            <form hx-post="/admin/mpesa/save" hx-target="#save-msg" hx-swap="innerHTML">
+                <div class="mb-3">
+                    <label class="form-label">Consumer Key</label>
+                    <input type="text" name="consumer_key" class="form-control font-monospace"
+                           value="{{ cfg.consumer_key if cfg else '' }}" placeholder="e.g. XxXxXxXxXxXxXxXxXxXxXx">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Consumer Secret</label>
+                    <input type="password" name="consumer_secret" class="form-control font-monospace"
+                           value="{{ cfg.consumer_secret if cfg else '' }}" placeholder="e.g. XxXxXxXxXxXxXxXxXxXxXx">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Passkey</label>
+                    <input type="password" name="passkey" class="form-control font-monospace"
+                           value="{{ cfg.passkey if cfg else '' }}" placeholder="From Daraja App > Lipa na M-Pesa Online">
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Shortcode (PayBill / Till)</label>
+                        <input type="text" name="shortcode" class="form-control font-monospace"
+                               value="{{ cfg.shortcode if cfg else '174379' }}" placeholder="174379">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Callback URL</label>
+                        <input type="text" name="callback_url" class="form-control font-monospace"
+                               value="{{ cfg.callback_url if cfg else '' }}" placeholder="https://kh07-welfare.spidmax.win">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input type="checkbox" name="sandbox" class="form-check-input" id="sandbox"
+                               value="true" {% if not cfg or cfg.sandbox %}checked{% endif %}>
+                        <label class="form-check-label" for="sandbox">Sandbox Mode (uncheck for production)</label>
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="small text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        {% if cfg and cfg.consumer_key %}
+                        <span class="text-success"><i class="fas fa-check-circle me-1"></i>Configured</span>
+                        {% else %}
+                        <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Not configured</span>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-accent"><i class="fas fa-save me-1"></i>Save Settings</button>
+                </div>
+            </form>
+            <div id="save-msg" class="mt-3"></div>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header"><i class="fas fa-history"></i>Recent Transactions</div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">View full transaction history:</p>
+            <a href="/mpesa/transactions" class="btn btn-outline-accent btn-sm"><i class="fas fa-list me-1"></i>Transaction History</a>
+        </div>
+    </div>
+
+    <div class="mt-4 text-center">
+        <a href="/admin/users" class="text-muted small"><i class="fas fa-arrow-left me-1"></i>Back to User Management</a>
+    </div>
+</div>
+</body>
+</html>

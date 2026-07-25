@@ -1,146 +1,255 @@
 """
 M-Pesa Daraja API integration — STK Push, callbacks, and auto-reconciliation.
 
-Requires:
-- TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars (for sending
-  payment success notifications to the admin)
+Config is stored in the mpesa_config DB table (admin-configurable via UI).
+Falls back to environment variables if no DB config is set.
 """
 import os
-import json
 import base64
-import hashlib
 import datetime
+import logging
+from decimal import Decimal
 from typing import Optional
 
 import httpx
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# ── Configuration ──
-# These should be set via the admin settings UI (stored in mpesa_config table)
-# or via environment variables
-CONSUMER_KEY = os.environ.get("MPESA_CONSUMER_KEY", "")
-CONSUMER_SECRET = os.environ.get("MPESA_CONSUMER_SECRET", "")
-PASSKEY = os.environ.get("MPESA_PASSKEY", "")
-SHORTCODE = os.environ.get("MPESA_SHORTCODE", "174379")  # Default test shortcode
-CALLBACK_BASE = os.environ.get("MPESA_CALLBACK_URL", "https://kh07-welfare.spidmax.win")
+from app.models import MpesaConfig, MpesaTransaction, Member, ContributionCause, Contribution
+from app.database import async_session
+
+logger = logging.getLogger("mpesa")
 
 # Base URLs
 SANDBOX_BASE = "https://sandbox.safaricom.co.ke"
 PRODUCTION_BASE = "https://api.safaricom.co.ke"
-USE_SANDBOX = os.environ.get("MPESA_SANDBOX", "true").lower() == "true"
-API_BASE = SANDBOX_BASE if USE_SANDBOX else PRODUCTION_BASE
+
+# Env fallbacks
+ENV_CONSUMER_KEY = os.environ.get("MPESA_CONSUMER_KEY", "")
+ENV_CONSUMER_SECRET = os.environ.get("MPESA_CONSUMER_SECRET", "")
+ENV_PASSKEY = os.environ.get("MPESA_PASSKEY", "")
+ENV_SHORTCODE = os.environ.get("MPESA_SHORTCODE", "174379")
+ENV_CALLBACK_BASE = os.environ.get("MPESA_CALLBACK_URL", "")
+ENV_SANDBOX = os.environ.get("MPESA_SANDBOX", "true").lower() == "true"
 
 
 class MpesaError(Exception):
     """M-Pesa API error."""
 
 
+# ── Config helpers ──
+
+async def _get_config() -> dict:
+    """Load M-Pesa config from DB, falling back to env vars."""
+    try:
+        async with async_session() as session:
+            cfg = await session.get(MpesaConfig, 1)
+            if cfg and cfg.consumer_key:
+                base = cfg.callback_url or f"https://kh07-welfare.spidmax.win"
+                return {
+                    "consumer_key": cfg.consumer_key,
+                    "consumer_secret": cfg.consumer_secret,
+                    "passkey": cfg.passkey,
+                    "shortcode": cfg.shortcode or "174379",
+                    "callback_url": base,
+                    "api_base": SANDBOX_BASE if cfg.sandbox else PRODUCTION_BASE,
+                }
+    except Exception as e:
+        logger.warning(f"Failed to load M-Pesa config from DB: {e}")
+
+    # Fallback to env vars
+    return {
+        "consumer_key": ENV_CONSUMER_KEY,
+        "consumer_secret": ENV_CONSUMER_SECRET,
+        "passkey": ENV_PASSKEY,
+        "shortcode": ENV_SHORTCODE,
+        "callback_url": ENV_CALLBACK_BASE or "https://kh07-welfare.spidmax.win",
+        "api_base": SANDBOX_BASE if ENV_SANDBOX else PRODUCTION_BASE,
+    }
+
+
 def _get_timestamp() -> str:
-    """Get timestamp in YYYYMMDDHHmmss format."""
     return datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
 
 def _generate_password(shortcode: str, passkey: str, timestamp: str) -> str:
-    """Generate the base64-encoded password for STK Push."""
     data = f"{shortcode}{passkey}{timestamp}"
     return base64.b64encode(data.encode()).decode()
 
 
-async def get_access_token() -> str:
+def _format_phone(phone: str) -> str:
+    """Normalize phone to 2547XXXXXXXX format."""
+    phone = phone.strip().replace(" ", "").replace("-", "")
+    if phone.startswith("+"):
+        phone = phone[1:]
+    if phone.startswith("0"):
+        phone = "254" + phone[1:]
+    if phone.startswith("2547") and len(phone) == 12:
+        return phone
+    raise MpesaError(f"Invalid phone: use 0712345678 or 254712345678")
+
+
+# ── API Calls ──
+
+async def get_access_token(cfg: dict) -> str:
     """Get OAuth access token from M-Pesa API."""
-    if not CONSUMER_KEY or not CONSUMER_SECRET:
-        raise MpesaError("M-Pesa consumer key/secret not configured. Set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET.")
-
-    auth_str = base64.b64encode(f"{CONSUMER_KEY}:{CONSUMER_SECRET}".encode()).decode()
-    headers = {"Authorization": f"Basic {auth_str}"}
-
+    ck = cfg.get("consumer_key", "")
+    cs = cfg.get("consumer_secret", "")
+    if not ck or not cs:
+        raise MpesaError("M-Pesa consumer key/secret not configured. Configure them in Admin > M-Pesa Settings.")
+    auth_str = base64.b64encode(f"{ck}:{cs}".encode()).decode()
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{API_BASE}/oauth/v1/generate?grant_type=client_credentials", headers=headers, timeout=15)
+        resp = await client.get(
+            f"{cfg['api_base']}/oauth/v1/generate?grant_type=client_credentials",
+            headers={"Authorization": f"Basic {auth_str}"},
+            timeout=15,
+        )
         if resp.status_code != 200:
-            raise MpesaError(f"Failed to get access token: {resp.status_code} {resp.text[:200]}")
-        data = resp.json()
-        return data.get("access_token", "")
+            raise MpesaError(f"Token request failed ({resp.status_code}): {resp.text[:200]}")
+        return resp.json().get("access_token", "")
 
 
-async def stk_push(
-    phone: str,
-    amount: float,
-    account_ref: str,
-    transaction_desc: str = "KH07 Welfare Contribution",
-) -> dict:
-    """
-    Initiate an STK Push (Lipa na M-Pesa Online) request.
-
-    Args:
-        phone: Phone number in format 2547XXXXXXXX
-        amount: Amount to charge
-        account_ref: Account reference (e.g. member number)
-        transaction_desc: Description of the transaction
-
-    Returns:
-        Response dict from the API
-    """
-    token = await get_access_token()
-    timestamp = _get_timestamp()
-    password = _generate_password(SHORTCODE, PASSKEY, timestamp)
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
+async def stk_push(phone: str, amount: float, account_ref: str,
+                   transaction_desc: str = "KH07 Welfare", cfg: Optional[dict] = None) -> dict:
+    """Initiate STK Push (Lipa na M-Pesa Online)."""
+    if cfg is None:
+        cfg = await _get_config()
+    token = await get_access_token(cfg)
+    ts = _get_timestamp()
+    pw = _generate_password(cfg["shortcode"], cfg["passkey"], ts)
 
     payload = {
-        "BusinessShortCode": SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
+        "BusinessShortCode": cfg["shortcode"],
+        "Password": pw,
+        "Timestamp": ts,
         "TransactionType": "CustomerPayBillOnline",
         "Amount": str(int(amount)),
         "PartyA": phone,
-        "PartyB": SHORTCODE,
+        "PartyB": cfg["shortcode"],
         "PhoneNumber": phone,
-        "CallBackURL": f"{CALLBACK_BASE}/api/mpesa/callback",
-        "AccountReference": account_ref[:12],  # Max 12 chars
-        "TransactionDesc": transaction_desc[:13],  # Max 13 chars
+        "CallBackURL": f"{cfg['callback_url'].rstrip('/')}/api/mpesa/callback",
+        "AccountReference": account_ref[:12],
+        "TransactionDesc": transaction_desc[:13],
     }
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            f"{API_BASE}/mpesa/stkpush/v1/processrequest",
-            headers=headers,
+            f"{cfg['api_base']}/mpesa/stkpush/v1/processrequest",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             json=payload,
             timeout=30,
         )
         if resp.status_code != 200:
-            raise MpesaError(f"STK Push failed: {resp.status_code} {resp.text[:200]}")
+            raise MpesaError(f"STK Push failed ({resp.status_code}): {resp.text[:200]}")
         return resp.json()
 
 
-async def query_status(checkout_request_id: str) -> dict:
-    """Query the status of an STK Push request."""
-    token = await get_access_token()
-    timestamp = _get_timestamp()
-    password = _generate_password(SHORTCODE, PASSKEY, timestamp)
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
+async def query_status(checkout_request_id: str, cfg: Optional[dict] = None) -> dict:
+    """Query the status of an STK Push."""
+    if cfg is None:
+        cfg = await _get_config()
+    token = await get_access_token(cfg)
+    ts = _get_timestamp()
+    pw = _generate_password(cfg["shortcode"], cfg["passkey"], ts)
 
     payload = {
-        "BusinessShortCode": SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
+        "BusinessShortCode": cfg["shortcode"],
+        "Password": pw,
+        "Timestamp": ts,
         "CheckoutRequestID": checkout_request_id,
     }
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            f"{API_BASE}/mpesa/stkpushquery/v1/query",
-            headers=headers,
+            f"{cfg['api_base']}/mpesa/stkpushquery/v1/query",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             json=payload,
             timeout=15,
         )
         if resp.status_code != 200:
-            raise MpesaError(f"Query failed: {resp.status_code} {resp.text[:200]}")
+            raise MpesaError(f"Query failed ({resp.status_code}): {resp.text[:200]}")
         return resp.json()
+
+
+# ── DB transaction logging ──
+
+async def log_transaction(session: AsyncSession, checkout_id: str, merchant_id: str,
+                          member_id: int, cause_id: int, amount: float,
+                          phone: str, account_ref: str) -> MpesaTransaction:
+    """Create a pending transaction record."""
+    tx = MpesaTransaction(
+        checkout_request_id=checkout_id,
+        merchant_request_id=merchant_id,
+        member_id=member_id,
+        cause_id=cause_id,
+        amount=amount,
+        phone=phone,
+        account_ref=account_ref,
+        status="pending",
+    )
+    session.add(tx)
+    await session.commit()
+    return tx
+
+
+async def update_transaction(session: AsyncSession, checkout_id: str, *,
+                             status: str = "", result_code: str = "",
+                             result_desc: str = "", receipt: str = ""):
+    """Update a transaction record from callback data."""
+    tx = await session.execute(
+        select(MpesaTransaction).where(MpesaTransaction.checkout_request_id == checkout_id)
+    )
+    tx = tx.scalar_one_or_none()
+    if not tx:
+        logger.warning(f"Transaction not found: {checkout_id}")
+        return
+    if status:
+        tx.status = status
+    if result_code:
+        tx.result_code = result_code
+    if result_desc:
+        tx.result_desc = result_desc[:500]
+    if receipt:
+        tx.receipt = receipt
+    await session.commit()
+
+
+async def reconcile_from_callback(session: AsyncSession, checkout_id: str,
+                                  amount: float, receipt: str, phone: str):
+    """Auto-record a Contribution when M-Pesa callback confirms payment."""
+    tx = await session.execute(
+        select(MpesaTransaction).where(MpesaTransaction.checkout_request_id == checkout_id)
+    )
+    tx = tx.scalar_one_or_none()
+    if not tx:
+        return
+
+    # Update transaction record
+    tx.status = "success"
+    tx.receipt = receipt
+    tx.result_code = "0"
+
+    # Check if contribution was already recorded for this receipt
+    existing = await session.execute(
+        select(Contribution).where(Contribution.transaction_ref == receipt)
+    )
+    if existing.scalar_one_or_none():
+        logger.info(f"Contribution already recorded for receipt {receipt}")
+        await session.commit()
+        return
+
+    # Auto-record contribution
+    member_id = tx.member_id
+    cause_id = tx.cause_id
+
+    if member_id and cause_id:
+        contrib = Contribution(
+            member_id=member_id,
+            cause_id=cause_id,
+            amount=amount,
+            payment_method="mpesa",
+            transaction_ref=receipt,
+        )
+        session.add(contrib)
+
+    await session.commit()

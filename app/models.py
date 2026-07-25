@@ -94,3 +94,46 @@ class Disbursement(Base):
 
     def __repr__(self):
         return f"Disburse KES {self.amount} to {self.beneficiary_name}"
+
+
+class MpesaConfig(Base):
+    """M-Pesa API configuration (singleton row, id=1)."""
+    __tablename__ = "mpesa_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    consumer_key: Mapped[str] = mapped_column(String(200), default="")
+    consumer_secret: Mapped[str] = mapped_column(String(200), default="")
+    passkey: Mapped[str] = mapped_column(String(200), default="")
+    shortcode: Mapped[str] = mapped_column(String(20), default="174379")
+    callback_url: Mapped[str] = mapped_column(String(300), default="")
+    sandbox: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"M-Pesa Config ({'sandbox' if self.sandbox else 'production'})"
+
+
+class MpesaTransaction(Base):
+    """Track M-Pesa STK Push attempts and callbacks."""
+    __tablename__ = "mpesa_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    checkout_request_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    merchant_request_id: Mapped[str] = mapped_column(String(100), default="")
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"), nullable=True, index=True)
+    cause_id: Mapped[int] = mapped_column(ForeignKey("contribution_causes.id", ondelete="SET NULL"), nullable=True)
+    amount: Mapped[Decimal] = mapped_column(SQLDecimal(10, 2), nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    account_ref: Mapped[str] = mapped_column(String(20), default="")
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | success | failed | timeout
+    result_code: Mapped[str] = mapped_column(String(10), default="")
+    result_desc: Mapped[str] = mapped_column(String(500), default="")
+    receipt: Mapped[str] = mapped_column(String(100), default="")  # M-Pesa receipt number
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    member: Mapped["Member"] = relationship()
+    cause: Mapped["ContributionCause"] = relationship()
+
+    def __repr__(self):
+        return f"M-Pesa {self.checkout_request_id[:12]}… → {self.status}"

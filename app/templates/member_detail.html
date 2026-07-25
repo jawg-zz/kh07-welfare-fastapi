@@ -54,6 +54,36 @@
                 <div id="photo-msg" class="mt-2"></div>
             </div>
         </div>
+
+        <div class="card mt-3">
+            <div class="card-header"><i class="fas fa-mobile-alt" style="color:var(--accent)"></i>M-Pesa Payment</div>
+            <div class="card-body">
+                <form hx-post="/mpesa/stkpush" hx-target="#mpesa-result" hx-swap="innerHTML">
+                    <input type="hidden" name="member_id" value="{{ member.id }}">
+                    <div class="mb-2">
+                        <label class="form-label small">Cause</label>
+                        <select name="cause_id" class="form-select form-select-sm" required>
+                            {% for c in causes %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Amount (KES)</label>
+                        <input type="number" name="amount" class="form-control form-control-sm" step="1" min="1" placeholder="e.g. 500" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Phone Number</label>
+                        <input type="tel" name="phone" class="form-control form-control-sm" 
+                               value="{{ member.phone_number }}" placeholder="0712345678" required>
+                    </div>
+                    <button type="submit" class="btn btn-accent btn-sm w-100">
+                        <i class="fas fa-mobile-alt me-1"></i>Pay via M-Pesa
+                    </button>
+                </form>
+                <div id="mpesa-result" class="mt-2"></div>
+            </div>
+        </div>
     </div>
     
     <div class="col-md-8">
