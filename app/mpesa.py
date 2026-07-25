@@ -219,6 +219,8 @@ async def query_status(checkout_request_id: str, cfg: Optional[dict] = None) -> 
         data["_status"] = "cancelled"     # User cancelled on phone
     elif rc_str == "1037":
         data["_status"] = "timeout"       # STK Push timed out
+    elif rc_str == "4999":
+        data["_status"] = "pending"       # Still processing, keep polling
     else:
         data["_status"] = "failed"        # 1, 2, 17, 26, 2001, etc.
     

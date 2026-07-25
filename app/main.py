@@ -1409,6 +1409,7 @@ _RESULT_MESSAGES = {
     "1032": "Transaction cancelled — you cancelled the request on your phone",
     "1037": "STK Push timed out — you did not enter your PIN in time",
     "2001": "Invalid transaction data — please try again",
+    "4999": "Transaction is still being processed — checking again…",
 }
 
 
