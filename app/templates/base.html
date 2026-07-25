@@ -85,6 +85,8 @@
             padding: .6rem 1.25rem;
             box-shadow: 0 1px 20px rgba(0,0,0,.15);
             min-height: 56px;
+            position: relative;
+            z-index: 1030;
         }
         .navbar::after {
             content: ''; position: absolute; bottom: 0; left: 8%; width: 84%; height: 1px;
@@ -365,6 +367,7 @@
             .navbar-nav .dropdown-menu { border: none; background: transparent; padding-left: 1.5rem; }
             .navbar-nav .dropdown-item { color: var(--text-muted) !important; }
             .navbar-nav .dropdown-item:hover { color: var(--text) !important; background: var(--accent-bg); }
+            .navbar-collapse { overflow: visible; }
         }
         @media (max-width: 768px) {
             .navbar { padding: .5rem .75rem; }
