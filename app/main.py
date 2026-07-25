@@ -1335,14 +1335,20 @@ async def portal_mpesa_pay(
                     <div class="step-content">
                         <div class="step-title">Check Your Phone</div>
                         <div class="step-desc">Enter your M-Pesa PIN to pay <strong>KES {amount:,.0f}</strong></div>
-                        <div class="mt-2" id="mpesa-check-area-{checkout_id}">
+                        <div class="mt-2">
+                            <div class="progress" style="height:4px;background:var(--border)">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="progress-portal-{checkout_id}" style="width:0%"></div>
+                            </div>
+                        </div>
+                        <div class="mt-1 d-flex justify-content-between">
+                            <small class="text-muted" id="poll-portal-{checkout_id}">Checking in 2s</small>
                             <button class="btn btn-sm btn-outline-accent"
-                                hx-get="/self-service/mpesa-check/{checkout_id}"
-                                hx-target="#mpesa-flow-{checkout_id}"
-                                hx-swap="outerHTML">
-                                <i class="fas fa-sync me-1"></i>Check Status
+                                hx-get="/self-service/mpesa-check/{checkout_id}?retry=1"
+                                hx-target="#mpesa-flow-{checkout_id}" hx-swap="outerHTML"
+                                hx-trigger="load delay:2s">
+                                <i class="fas fa-sync me-1"></i>Check Now
                             </button>
-                            <small class="text-muted ms-2">Auto-checking shortly…</small>
                         </div>
                     </div>
                 </div>
@@ -1355,20 +1361,18 @@ async def portal_mpesa_pay(
                 </div>
             </div>
             <script>
-                setTimeout(function() {{
-                    var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                    if (btn) htmx.trigger(btn, 'click');
-                }}, 5000);
-                setTimeout(function() {{
-                    var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                    if (btn) htmx.trigger(btn, 'click');
-                }}, 20000);
-                setTimeout(function() {{
-                    var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                    if (btn) htmx.trigger(btn, 'click');
-                }}, 40000);
-            </script>
-            """)
+                (function() {{
+                    var secs = 2;
+                    var bar = document.getElementById('progress-portal-{checkout_id}');
+                    var txt = document.getElementById('poll-portal-{checkout_id}');
+                    var ival = setInterval(function() {{
+                        secs--; if (secs < 0) secs = 0;
+                        if (bar) bar.style.width = ((2 - secs) / 2 * 100) + '%';
+                        if (txt) txt.textContent = 'Checking in ' + secs + 's';
+                        if (secs <= 0) clearInterval(ival);
+                    }}, 1000);
+                }})();
+            </script>""")
         else:
             msg = result.get("ResponseDescription", "Unknown error")
             return HTMLResponse(f'<div class="alert alert-danger">M-Pesa request failed: {msg}</div>')
