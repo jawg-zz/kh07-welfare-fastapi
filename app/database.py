@@ -5,7 +5,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
-DB_PATH = Path(__file__).parent.parent / "db.sqlite3"
+DB_PATH = Path(os.environ.get("DATA_DIR", "/data")) / "db.sqlite3"
 DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
