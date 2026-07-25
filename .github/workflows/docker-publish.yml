@@ -77,6 +77,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Disable cache on clean rebuild — revert later
+          no-cache-filters: "COPY . ./"
           # Output digest so we can reference it later
           outputs: type=image,push-by-digest=false,name-target=true
 
