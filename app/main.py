@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import init_db, get_db, count_members, count_causes, sum_contributions, count_contributions, member_total_and_count
 from app.models import Member, ContributionCause, Contribution, Disbursement, User, MpesaConfig, MpesaTransaction
-from app.auth import require_auth, require_admin, verify_password, create_session, logout_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user
+from app.auth import require_auth, require_admin, verify_password, create_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user
 
 from jinja2 import Environment, FileSystemLoader
 
