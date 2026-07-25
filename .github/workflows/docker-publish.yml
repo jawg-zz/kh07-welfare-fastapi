@@ -73,12 +73,18 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\"}}}" > /dev/null
           sleep 5
+          echo "Deploying..."
           curl -s -X POST "$DOKPLOY_URL/api/trpc/application.deploy?batch=1" \
             -H "x-api-key: $DOKPLOY_KEY" \
             -H "Content-Type: application/json" \
             -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\",\"cleanCache\":true}}}" > /dev/null
-          sleep 60
+          echo "Waiting 120s for image pull..."
+          sleep 120
+          echo "Starting..."
           curl -s -X POST "$DOKPLOY_URL/api/trpc/application.start?batch=1" \
             -H "x-api-key: $DOKPLOY_KEY" \
             -H "Content-Type: application/json" \
             -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\"}}}" > /dev/null
+          echo "Waiting 90s for container startup..."
+          sleep 90
+          echo "Deploy complete"
