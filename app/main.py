@@ -1148,7 +1148,7 @@ async def mpesa_admin_page(request: Request, db: AsyncSession = Depends(get_db),
 async def mpesa_admin_save(
     consumer_key: str = Form(""), consumer_secret: str = Form(""),
     passkey: str = Form(""), shortcode: str = Form("174379"),
-    callback_url: str = Form(""), sandbox: bool = Form(True),
+    callback_url: str = Form(""), sandbox: bool = Form(False),
     db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
 ):
     cfg = await db.get(MpesaConfig, 1)
