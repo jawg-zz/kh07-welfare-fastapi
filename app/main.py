@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import init_db, get_db, count_members, count_causes, sum_contributions, count_contributions, member_total_and_count
 from app.models import Member, ContributionCause, Contribution, Disbursement, User, MpesaConfig, MpesaTransaction
-from app.auth import require_auth, require_admin, verify_password, create_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user
+from app.auth import require_auth, require_permission, verify_password, create_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user, ROLES, ROLE_LABELS, VALID_ROLES
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -26,8 +26,15 @@ env = Environment(loader=FileSystemLoader(str(templates_dir)))
 
 
 def render(name: str, **ctx) -> HTMLResponse:
-    template = env.get_template(name)
-    return HTMLResponse(template.render(**ctx))
+    """Render a Jinja2 template, auto-injecting role."""
+    # If 'request' is in context, extract role for the template
+    if "request" in ctx:
+        role = get_session_role(ctx["request"])
+        if role:
+            ctx.setdefault("user_role", role)
+            ctx.setdefault("role_label", ROLE_LABELS.get(role, role.capitalize()))
+    return HTMLResponse(globals["env"].get_template(name).render(**ctx))
+
 
 
 @asynccontextmanager
@@ -398,7 +405,7 @@ def _next_member_number() -> int:
 
 
 @app.post("/alumni/register")
-async def member_create(name: str = Form(...), phone_number: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_admin)):
+async def member_create(name: str = Form(...), phone_number: str = Form(""), db: AsyncSession = Depends(get_db), user: User = Depends(require_permission("members"))):
     from sqlalchemy.exc import IntegrityError
     if not name.strip():
         return HTMLResponse('<div class="alert alert-danger">Name is required</div>')
@@ -437,7 +444,7 @@ async def member_detail(member_id: int, request: Request, db: AsyncSession = Dep
 
 
 @app.post("/alumni/{member_id}/edit")
-async def member_update(member_id: int, name: str = Form(...), phone_number: str = Form(""), is_active: bool = Form(False), db: AsyncSession = Depends(get_db), user: str = Depends(require_admin)):
+async def member_update(member_id: int, name: str = Form(...), phone_number: str = Form(""), is_active: bool = Form(False), db: AsyncSession = Depends(get_db), user: User = Depends(require_permission("members"))):
     member = await db.get(Member, member_id)
     if not member:
         raise HTTPException(status_code=404)
@@ -484,7 +491,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 @app.post("/alumni/{member_id}/photo", response_class=HTMLResponse)
 async def member_photo_upload(
     member_id: int, file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db), user: str = Depends(require_admin),
+    db: AsyncSession = Depends(get_db), user: User = Depends(require_permission("members")),
 ):
     member = await db.get(Member, member_id)
     if not member:
@@ -698,7 +705,7 @@ async def import_form(request: Request, user: str = Depends(require_auth)):
 
 
 @app.post("/bulk-upload", response_class=HTMLResponse)
-async def import_excel(request: Request, file: UploadFile = File(...), user: str = Depends(require_admin)):
+async def import_excel(request: Request, file: UploadFile = File(...), user: User = Depends(require_permission("members"))):
     if not file.filename.endswith(('.xlsx', '.xls')):
         return HTMLResponse('<div class="alert alert-danger">Please upload a .xlsx file</div>')
 
@@ -1120,7 +1127,7 @@ async def audit_page(request: Request, user: str = Depends(require_auth)):
 
 # ── Admin: User Management ──
 @app.get("/admin/users", response_class=HTMLResponse)
-async def admin_users(request: Request, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+async def admin_users(request: Request, db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("users"))):
     result = await db.execute(select(User).order_by(User.username))
     users = result.scalars().all()
     return render("admin_users.html", request=request, user=admin.username, users=users)
@@ -1129,12 +1136,14 @@ async def admin_users(request: Request, db: AsyncSession = Depends(get_db), admi
 @app.post("/admin/users/create", response_class=HTMLResponse)
 async def admin_create_user(
     username: str = Form(...), password: str = Form(...), role: str = Form("viewer"),
-    db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("users")),
 ):
     from app.auth import hash_password
     existing = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
     if existing:
         return HTMLResponse(f'<div class="alert alert-danger">User "{username}" already exists</div>')
+    if role not in VALID_ROLES:
+        return HTMLResponse(f'<div class="alert alert-danger">Invalid role: {role}</div>')
     user = User(username=username, password_hash=hash_password(password), role=role)
     db.add(user)
     await db.commit()
@@ -1143,7 +1152,7 @@ async def admin_create_user(
 
 @app.post("/admin/users/{user_id}/toggle", response_class=HTMLResponse)
 async def admin_toggle_user(
-    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("users")),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -1157,9 +1166,28 @@ async def admin_toggle_user(
     return HTMLResponse(f'<div class="alert alert-success">User <strong>{user.username}</strong> {status}</div>')
 
 
+@app.post("/admin/users/{user_id}/role", response_class=HTMLResponse)
+async def admin_change_role(
+    user_id: int, role: str = Form(...),
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("users")),
+):
+    """Change a user's role."""
+    if role not in VALID_ROLES:
+        return HTMLResponse(f'<div class="alert alert-danger">Invalid role: {role}</div>')
+    user = await db.get(User, user_id)
+    if not user:
+        return HTMLResponse('<div class="alert alert-danger">User not found</div>')
+    if user.username == "admin" and role != "admin":
+        return HTMLResponse('<div class="alert alert-warning">Cannot downgrade the primary admin account</div>')
+    old_role = user.role
+    user.role = role
+    await db.commit()
+    return HTMLResponse(f'<div class="alert alert-success">Role changed from "{old_role}" to "{role}"</div>')
+
+
 @app.post("/admin/users/{user_id}/delete", response_class=HTMLResponse)
 async def admin_delete_user(
-    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("users")),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -1175,7 +1203,7 @@ async def admin_delete_user(
 @app.post("/admin/users/{user_id}/reset-password", response_class=HTMLResponse)
 async def admin_reset_password(
     user_id: int, new_password: str = Form(...), db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("users")),
 ):
     from app.auth import hash_password
     result = await db.execute(select(User).where(User.id == user_id))
@@ -1190,7 +1218,7 @@ async def admin_reset_password(
 # ── M-Pesa Integration ──
 
 @app.get("/admin/mpesa", response_class=HTMLResponse)
-async def mpesa_admin_page(request: Request, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+async def mpesa_admin_page(request: Request, db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("mpesa"))):
     """M-Pesa configuration page."""
     cfg = await db.get(MpesaConfig, 1)
     return render("admin_mpesa.html", request=request, user=admin.username, cfg=cfg)
@@ -1198,10 +1226,9 @@ async def mpesa_admin_page(request: Request, db: AsyncSession = Depends(get_db),
 
 @app.post("/admin/mpesa/save", response_class=HTMLResponse)
 async def mpesa_admin_save(
-    consumer_key: str = Form(""), consumer_secret: str = Form(""),
-    passkey: str = Form(""), shortcode: str = Form("174379"),
-    callback_url: str = Form(""), sandbox: bool = Form(False),
-    db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+    consumer_key: str = Form(...), consumer_secret: str = Form(...), passkey: str = Form(...),
+    shortcode: str = Form(...), callback_url: str = Form(""), sandbox: bool = Form(False),
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("mpesa")),
 ):
     cfg = await db.get(MpesaConfig, 1)
     if not cfg:
@@ -1241,7 +1268,7 @@ async def mpesa_transactions(request: Request, db: AsyncSession = Depends(get_db
 @app.post("/mpesa/stkpush", response_class=HTMLResponse)
 async def mpesa_stk_push(
     member_id: int = Form(...), cause_id: int = Form(...), amount: float = Form(...),
-    phone: str = Form(...), db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+    phone: str = Form(...), db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("mpesa")),
 ):
     """Initiate an M-Pesa STK Push payment request (admin)."""
     from app.mpesa import stk_push, log_transaction, _format_phone
@@ -1425,7 +1452,7 @@ async def portal_mpesa_pay(
 
 @app.get("/mpesa/check/{checkout_id}", response_class=HTMLResponse)
 async def mpesa_check_status(checkout_id: str, request: Request,
-                              db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+                              db: AsyncSession = Depends(get_db), admin: User = Depends(require_permission("mpesa:read"))):
     """Check the status of an M-Pesa transaction (admin)."""
     retry = int(request.query_params.get("retry", "0"))
     return await _do_mpesa_check(checkout_id, db, retry)

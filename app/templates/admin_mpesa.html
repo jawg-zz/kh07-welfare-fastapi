@@ -46,7 +46,7 @@
         <a class="navbar-brand" href="/overview"><i class="fas fa-people-arrows"></i>KH07 Welfare</a>
         <div class="ms-auto d-flex align-items-center gap-3">
             <a href="/overview" class="nav-link text-muted"><i class="fas fa-chart-pie me-1"></i>Dashboard</a>
-            <span class="text-muted small"><i class="fas fa-user-shield me-1"></i>{{ user }}</span>
+            <span class="text-muted small"><i class="fas fa-user-shield me-1"></i>{{ user }}{% if user_role %} <span class="badge badge-role ms-1" style="font-size:.6rem;padding:.2em .6em">{{ role_label }}</span>{% endif %}</span>
         </div>
     </div>
 </nav>

@@ -32,6 +32,8 @@
         .table td { border-color: var(--border); vertical-align: middle; }
         .badge-role { font-size: .75rem; padding: .25em .65em; border-radius: 20px; }
         .badge-admin { background: rgba(232,130,108,.15); color: var(--accent); }
+        .badge-treasurer { background: rgba(244,201,124,.15); color: var(--warning); }
+        .badge-secretary { background: rgba(93,187,138,.15); color: var(--success); }
         .badge-viewer { background: rgba(91,192,222,.15); color: #5BC0DE; }
         .form-control, .form-select { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text); border-radius: 8px; }
         .form-control:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 .2rem rgba(232,130,108,.15); }
@@ -57,7 +59,9 @@
         <a class="navbar-brand" href="/overview"><i class="fas fa-people-arrows"></i>KH07 Welfare</a>
         <div class="ms-auto d-flex align-items-center gap-3">
             <a href="/overview" class="nav-link text-muted"><i class="fas fa-chart-pie me-1"></i>Dashboard</a>
-            <span class="text-muted small"><i class="fas fa-user-shield me-1"></i>{{ user }}</span>
+            <span class="text-muted small"><i class="fas fa-user-shield me-1"></i>{{ user }}
+                {% if user_role %}<span class="badge badge-role ms-1" style="font-size:.6rem;padding:.2em .6em">
+                    {{ role_label }}</span>{% endif %}</span>
         </div>
     </div>
 </nav>
@@ -84,7 +88,9 @@
                             <label class="form-label small text-muted">Role</label>
                             <select name="role" class="form-select">
                                 <option value="viewer">Viewer (read-only)</option>
-                                <option value="admin">Admin (full access)</option>
+                                <option value="secretary">Secretary (members + causes)</option>
+                                <option value="treasurer">Treasurer (payments + reports)</option>
+                                <option value="admin">Administrator (full access)</option>
                             </select>
                         </div>
                         <button type="submit" class="btn btn-accent w-100"><i class="fas fa-plus me-1"></i>Create User</button>
@@ -113,8 +119,12 @@
                             <tr>
                                 <td class="ps-3 fw-semibold">{{ u.username }}</td>
                                 <td>
-                                    <span class="badge badge-role {{ 'badge-admin' if u.role == 'admin' else 'badge-viewer' }}">
-                                        <i class="fas {{ 'fa-shield-alt' if u.role == 'admin' else 'fa-eye' }} me-1"></i>{{ u.role }}
+                                    {% set role_data = {'admin': {'icon': 'fa-shield-alt', 'class': 'badge-admin'},
+                                                         'treasurer': {'icon': 'fa-coins', 'class': 'badge-treasurer'},
+                                                         'secretary': {'icon': 'fa-file-alt', 'class': 'badge-secretary'},
+                                                         'viewer': {'icon': 'fa-eye', 'class': 'badge-viewer'} } %}
+                                    <span class="badge badge-role {{ role_data.get(u.role, {}).get('class', 'badge-viewer') }}">
+                                        <i class="fas {{ role_data.get(u.role, {}).get('icon', 'fa-eye') }} me-1"></i>{{ u.role | capitalize }}
                                     </span>
                                 </td>
                                 <td>
@@ -127,6 +137,15 @@
                                 <td class="pe-3 text-end">
                                     <div class="d-flex gap-1 justify-content-end">
                                         {% if u.username != 'admin' %}
+                                        <!-- Role change -->
+                                        <form hx-post="/admin/users/{{ u.id }}/role" hx-target="#user-msg" hx-swap="innerHTML" class="d-inline">
+                                            <select name="role" class="form-select form-select-sm d-inline" style="width:auto;font-size:.7rem;padding:.15rem .4rem"
+                                                onchange="this.form.requestSubmit()">
+                                                {% for r in ['admin', 'treasurer', 'secretary', 'viewer'] %}
+                                                <option value="{{ r }}" {{ 'selected' if u.role == r }}>{{ r | capitalize }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </form>
                                         <button class="btn btn-sm btn-outline-accent"
                                             hx-post="/admin/users/{{ u.id }}/toggle"
                                             hx-target="#user-list"
