@@ -29,6 +29,7 @@ class Member(Base):
     member_number: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     phone_number: Mapped[str] = mapped_column(String(20), default="")
+    photo: Mapped[str] = mapped_column(String(500), default="")  # URL or path to profile photo
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     joined_date: Mapped[date] = mapped_column(Date, default=date.today)
     notes: Mapped[str] = mapped_column(Text, default="")

@@ -373,7 +373,7 @@ async def member_list(request: Request, db: AsyncSession = Depends(get_db), user
     for m in result.scalars().all():
         total = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)).where(Contribution.member_id == m.id))).scalar() or 0)
         count = (await db.execute(select(func.count(Contribution.id)).where(Contribution.member_id == m.id))).scalar() or 0
-        member_data.append({"id": m.id, "member_number": m.member_number, "name": m.name, "phone": m.phone_number, "is_active": m.is_active, "total": total, "count": count})
+        member_data.append({"id": m.id, "member_number": m.member_number, "name": m.name, "phone_number": m.phone_number, "photo": m.photo, "is_active": m.is_active, "total": total, "count": count})
     return render("members.html", user=user, request=request, members=member_data, search=search)
 
 
@@ -423,6 +423,48 @@ async def member_add_contribution(member_id: int, cause_id: int = Form(...), amo
         payment_method=payment_method, transaction_ref=transaction_ref, date_paid=dp, notes=notes))
     await db.commit()
     return await member_detail(member_id, request, db, user)
+
+
+# ── Member photo upload ──
+import uuid as _uuid
+import aiofiles
+
+UPLOAD_DIR = Path(__file__).parent / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.post("/alumni/{member_id}/photo", response_class=HTMLResponse)
+async def member_photo_upload(
+    member_id: int, file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db), user: str = Depends(require_admin),
+):
+    member = await db.get(Member, member_id)
+    if not member:
+        return HTMLResponse('<div class="alert alert-danger">Member not found</div>')
+
+    # Validate file type
+    allowed = ("image/jpeg", "image/png", "image/webp", "image/gif")
+    if file.content_type not in allowed:
+        return HTMLResponse(f'<div class="alert alert-danger">Invalid file type. Allowed: {", ".join(a.split("/")[1] for a in allowed)}</div>')
+
+    # Save file
+    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
+    filename = f"member_{member_id}_{_uuid.uuid4().hex[:8]}.{ext}"
+    dest = UPLOAD_DIR / filename
+
+    content = await file.read()
+    async with aiofiles.open(str(dest), "wb") as f:
+        await f.write(content)
+
+    # Update member photo field
+    member.photo = f"/static/uploads/{filename}"
+    await db.commit()
+
+    return HTMLResponse(f'''
+    <div class="alert alert-success">Photo uploaded successfully</div>
+    <img src="/static/uploads/{filename}" class="rounded-circle mt-2" style="width:120px;height:120px;object-fit:cover;border:3px solid var(--accent)">
+    ''')
+
 
 
 # Causes

@@ -10,11 +10,15 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-body text-center">
+                {% if member.photo %}
+                <img src="{{ member.photo }}" class="rounded-circle mb-3" style="width:100px;height:100px;object-fit:cover;border:3px solid var(--accent)">
+                {% else %}
                 <div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem;font-weight:700;color:#fff;">{{ member.name[:1] }}</div>
+                {% endif %}
                 <h5 class="mb-1">{{ member.name }}</h5>
                 <div class="text-muted small mb-2">#{{ member.member_number }}</div>
                 {% if member.is_active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}
-                {% if member.phone %}<div class="mt-2 small"><i class="fas fa-phone me-1"></i>{{ member.phone }}</div>{% endif %}
+                {% if member.phone_number %}<div class="mt-2 small"><i class="fas fa-phone me-1"></i>{{ member.phone_number }}</div>{% endif %}
                 <hr style="border-color:var(--border)">
                 <div class="row text-center">
                     <div class="col-6"><div class="fw-bold" style="font-family:monospace;font-size:1.2rem;color:var(--accent)">KES {{ "{:,.0f}".format(total) }}</div><small class="text-muted">Total</small></div>
@@ -41,6 +45,13 @@
                     </div>
                     <button type="submit" class="btn btn-accent btn-sm w-100">Save Changes</button>
                 </form>
+                <hr style="border-color:var(--border)">
+                <form id="photo-upload-form" method="post" action="/alumni/{{ member.id }}/photo" enctype="multipart/form-data" hx-target="#photo-msg" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+                    <label class="form-label small">Profile Photo</label>
+                    <input type="file" name="file" class="form-control form-control-sm mb-2" accept="image/*" required>
+                    <button type="submit" class="btn btn-outline-accent btn-sm w-100"><i class="fas fa-camera me-1"></i>Upload Photo</button>
+                </form>
+                <div id="photo-msg" class="mt-2"></div>
             </div>
         </div>
     </div>
