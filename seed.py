@@ -7,7 +7,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from app.database import async_session, engine, Base
-from app.models import Member, ContributionCause, Contribution
+from app.models import Member, ContributionCause, Contribution, User
+from app.auth import hash_password
 from sqlalchemy import select, func
 from datetime import date
 import random
@@ -153,6 +154,15 @@ async def seed():
         await conn.run_sync(Base.metadata.create_all)
 
     async with async_session() as session:
+        # Seed admin user
+        existing_user = (await session.execute(select(User).where(User.username == "admin"))).scalar_one_or_none()
+        if not existing_user:
+            admin = User(username="admin", password_hash=hash_password("admin123"), role="admin")
+            session.add(admin)
+            await session.flush()
+            print("Created admin user")
+
+        # Seed data
         existing = (await session.execute(select(func.count(Member.id)))).scalar()
         if existing and existing > 0:
             print(f"Database already has {existing} members, skipping seed")

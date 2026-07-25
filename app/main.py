@@ -13,8 +13,8 @@ from sqlalchemy.orm import selectinload
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import init_db, get_db, count_members, count_causes, sum_contributions, count_contributions, member_total_and_count
-from app.models import Member, ContributionCause, Contribution, Disbursement
-from app.auth import require_auth, verify_password, create_session, logout_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user
+from app.models import Member, ContributionCause, Contribution, Disbursement, User
+from app.auth import require_auth, require_admin, verify_password, create_session, logout_session, SESSION_COOKIE, SESSION_MAX_AGE, get_session_user
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -66,9 +66,11 @@ async def login_page(request: Request, error: str = ""):
 
 
 @app.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    if username == "admin" and verify_password(password):
-        token = create_session(username)
+async def login(request: Request, username: str = Form(...), password: str = Form(...), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == username, User.is_active == True))
+    user = result.scalar_one_or_none()
+    if user and verify_password(password, user.password_hash):
+        token = create_session(username, user.role)
         resp = RedirectResponse(url="/alumni", status_code=302)
         resp.set_cookie(key=SESSION_COOKIE, value=token, max_age=int(SESSION_MAX_AGE.total_seconds()), httponly=True, samesite="lax")
         return resp
@@ -381,7 +383,7 @@ async def member_new_form(request: Request, user: str = Depends(require_auth)):
 
 
 @app.post("/alumni/register")
-async def member_create(name: str = Form(...), phone_number: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+async def member_create(name: str = Form(...), phone_number: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_admin)):
     last = (await db.execute(select(func.max(Member.member_number)))).scalar() or 0
     db.add(Member(member_number=last + 1, name=name.strip(), phone_number=phone_number.strip()))
     await db.commit()
@@ -400,7 +402,7 @@ async def member_detail(member_id: int, request: Request, db: AsyncSession = Dep
 
 
 @app.post("/alumni/{member_id}/edit")
-async def member_update(member_id: int, name: str = Form(...), phone_number: str = Form(""), is_active: bool = Form(False), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
+async def member_update(member_id: int, name: str = Form(...), phone_number: str = Form(""), is_active: bool = Form(False), db: AsyncSession = Depends(get_db), user: str = Depends(require_admin)):
     member = await db.get(Member, member_id)
     if not member:
         raise HTTPException(status_code=404)
@@ -588,7 +590,7 @@ async def import_form(request: Request, user: str = Depends(require_auth)):
 
 
 @app.post("/bulk-upload", response_class=HTMLResponse)
-async def import_excel(request: Request, file: UploadFile = File(...), user: str = Depends(require_auth)):
+async def import_excel(request: Request, file: UploadFile = File(...), user: str = Depends(require_admin)):
     if not file.filename.endswith(('.xlsx', '.xls')):
         return HTMLResponse('<div class="alert alert-danger">Please upload a .xlsx file</div>')
 
@@ -999,6 +1001,94 @@ class AuditLog:
 @app.get("/activity-log", response_class=HTMLResponse)
 async def audit_page(request: Request, user: str = Depends(require_auth)):
     return render("audit.html", user=user, request=request, entries=AuditLog.recent(100))
+
+
+# ── Admin: User Management ──
+@app.get("/admin/users", response_class=HTMLResponse)
+async def admin_users(request: Request, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    result = await db.execute(select(User).order_by(User.username))
+    users = result.scalars().all()
+    return render("admin_users.html", request=request, user=admin.username, users=users)
+
+
+@app.post("/admin/users/create", response_class=HTMLResponse)
+async def admin_create_user(
+    username: str = Form(...), password: str = Form(...), role: str = Form("viewer"),
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+):
+    from app.auth import hash_password
+    existing = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
+    if existing:
+        return HTMLResponse(f'<div class="alert alert-danger">User "{username}" already exists</div>')
+    user = User(username=username, password_hash=hash_password(password), role=role)
+    db.add(user)
+    await db.commit()
+    return HTMLResponse(f'<div class="alert alert-success">Created user <strong>{username}</strong> ({role})</div>')
+
+
+@app.post("/admin/users/{user_id}/toggle", response_class=HTMLResponse)
+async def admin_toggle_user(
+    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        return HTMLResponse('<div class="alert alert-danger">User not found</div>')
+    if user.username == "admin":
+        return HTMLResponse('<div class="alert alert-warning">Cannot deactivate the main admin</div>')
+    user.is_active = not user.is_active
+    await db.commit()
+    status = "activated" if user.is_active else "deactivated"
+    return HTMLResponse(f'<div class="alert alert-success">User <strong>{user.username}</strong> {status}</div>')
+
+
+@app.post("/admin/users/{user_id}/delete", response_class=HTMLResponse)
+async def admin_delete_user(
+    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        return HTMLResponse('<div class="alert alert-danger">User not found</div>')
+    if user.username == "admin":
+        return HTMLResponse('<div class="alert alert-warning">Cannot delete the main admin</div>')
+    await db.delete(user)
+    await db.commit()
+    return HTMLResponse(f'<div class="alert alert-success">User <strong>{user.username}</strong> deleted</div>')
+
+
+@app.post("/admin/users/{user_id}/reset-password", response_class=HTMLResponse)
+async def admin_reset_password(
+    user_id: int, new_password: str = Form(...), db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.auth import hash_password
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        return HTMLResponse('<div class="alert alert-danger">User not found</div>')
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+    return HTMLResponse(f'<div class="alert alert-success">Password reset for <strong>{user.username}</strong></div>')
+
+
+# ── Viewer role guard middleware ──
+@app.middleware("http")
+async def viewer_write_guard(request: Request, call_next):
+    """Block write operations (POST/PUT/DELETE) for viewer-role users."""
+    if request.method in ("POST", "PUT", "DELETE"):
+        skip_paths = ("/login", "/self-service/lookup", "/self-service/update-phone", "/self-service/suggest-cause")
+        if not request.url.path.startswith(skip_paths):
+            from app.auth import get_session_role
+            role = get_session_role(request)
+            if role == "viewer":
+                return HTMLResponse(
+                    '<div class="alert alert-danger"><i class="fas fa-ban me-2"></i>'
+                    'Viewer accounts cannot perform write operations. Contact an admin.</div>',
+                    status_code=403,
+                )
+    response = await call_next(request)
+    return response
 
 
 # ── Old route redirects ──
