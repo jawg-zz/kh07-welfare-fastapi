@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date, datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func, desc, String, extract
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -878,8 +878,8 @@ async def disburse_create(cause_id: int, beneficiary_name: str = Form(...), amou
 # ── Telegram notification (triggered when cause created) ──
 def send_telegram(message: str):
     import urllib.request, urllib.parse
-    token = "7605394619:AAEdyytxWLLN6UVT_WFQSkcNgVPom-xFcYI"
-    chat_id = "6760963523"
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "7605394619:***")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "6760963523")
     try:
         data = urllib.parse.urlencode({"chat_id": chat_id, "text": message, "parse_mode": "HTML"}).encode()
         urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data, timeout=10)
@@ -1130,6 +1130,126 @@ async def admin_reset_password(
     user.password_hash = hash_password(new_password)
     await db.commit()
     return HTMLResponse(f'<div class="alert alert-success">Password reset for <strong>{user.username}</strong></div>')
+
+
+# ── M-Pesa Integration ──
+@app.post("/mpesa/stkpush", response_class=HTMLResponse)
+async def mpesa_stk_push(
+    member_id: int = Form(...), cause_id: int = Form(...), amount: float = Form(...),
+    phone: str = Form(...), db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin),
+):
+    """Initiate an M-Pesa STK Push payment request."""
+    member = await db.get(Member, member_id)
+    if not member:
+        return HTMLResponse('<div class="alert alert-danger">Member not found</div>')
+
+    # Format phone (remove 0 prefix, add 254)
+    phone = phone.strip()
+    if phone.startswith("0"):
+        phone = "254" + phone[1:]
+    elif phone.startswith("+"):
+        phone = phone[1:]
+    if not phone.startswith("254") or len(phone) != 12:
+        return HTMLResponse('<div class="alert alert-danger">Invalid phone number. Use format 0712345678 or 254712345678</div>')
+
+    try:
+        from app.mpesa import stk_push
+        result = await stk_push(
+            phone=phone,
+            amount=amount,
+            account_ref=f"KH{member.member_number}",
+            transaction_desc=f"{member.name[:20]} — Welfare",
+        )
+        code = result.get("ResponseCode", "1")
+        if code == "0":
+            checkout_id = result.get("CheckoutRequestID", "")
+            return HTMLResponse(f'''
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-1"></i>M-Pesa STK Push sent! Check your phone to complete payment.<br>
+                <small class="text-muted">Checkout: {checkout_id[:15]}...</small>
+            </div>
+            <script>
+                // Poll for completion after 60s
+                setTimeout(function() {{
+                    htmx.ajax("GET", "/mpesa/check/{checkout_id}", {{target: "#mpesa-status"}});
+                }}, 60000);
+            </script>
+            <div id="mpesa-status"></div>
+            ''')
+        else:
+            msg = result.get("ResponseDescription", "Unknown error")
+            return HTMLResponse(f'<div class="alert alert-danger">M-Pesa request failed: {msg}</div>')
+    except Exception as e:
+        return HTMLResponse(f'<div class="alert alert-danger">M-Pesa error: {str(e)}</div>')
+
+
+@app.get("/mpesa/check/{checkout_id}", response_class=HTMLResponse)
+async def mpesa_check_status(checkout_id: str, admin: User = Depends(require_admin)):
+    """Check the status of an M-Pesa transaction."""
+    try:
+        from app.mpesa import query_status
+        result = await query_status(checkout_id)
+        code = result.get("ResultCode", "1")
+        if code == "0":
+            return HTMLResponse(f'''
+            <div class="alert alert-success mt-2">
+                <i class="fas fa-check-circle me-1"></i>Payment confirmed! Amount: KES {result.get("Amount", "?")}
+            </div>''')
+        elif code == "1037":
+            return HTMLResponse(f'''
+            <div class="alert alert-warning mt-2">
+                <i class="fas fa-clock me-1"></i>Transaction is still processing. Check again later.
+            </div>''')
+        else:
+            desc = result.get("ResultDesc", "Transaction failed")
+            return HTMLResponse(f'<div class="alert alert-danger mt-2">{desc}</div>')
+    except Exception as e:
+        return HTMLResponse(f'<div class="alert alert-danger mt-2">Check failed: {str(e)}</div>')
+
+
+@app.post("/api/mpesa/callback", response_class=JSONResponse)
+async def mpesa_callback(request: Request, db: AsyncSession = Depends(get_db)):
+    """M-Pesa API callback — receives payment confirmation."""
+    try:
+        body = await request.json()
+        # Extract the relevant data from the callback
+        stk_callback = body.get("Body", {}).get("stkCallback", {})
+        checkout_id = stk_callback.get("CheckoutRequestID", "")
+        result_code = stk_callback.get("ResultCode", 1)
+        result_desc = stk_callback.get("ResultDesc", "")
+
+        if result_code == 0:
+            # Successful payment
+            metadata = stk_callback.get("CallbackMetadata", {}).get("Item", [])
+            amount = next((i.get("Value") for i in metadata if i.get("Name") == "Amount"), 0)
+            receipt = next((i.get("Value", "") for i in metadata if i.get("Name") == "MpesaReceiptNumber"), "")
+            phone = next((i.get("Value", "") for i in metadata if i.get("Name") == "PhoneNumber"), "")
+
+            # Extract member number from AccountReference (format: KH{number})
+            account_ref = stk_callback.get("AccountReference", "")
+            member_num = account_ref.replace("KH", "")
+            if member_num.isdigit():
+                member = (await db.execute(
+                    select(Member).where(Member.member_number == int(member_num))
+                )).scalar_one_or_none()
+                if member:
+                    # Auto-record the contribution
+                    cause = (await db.execute(
+                        select(ContributionCause).where(ContributionCause.is_active == True).limit(1)
+                    )).scalar_one_or_none()
+                    if cause:
+                        db.add(Contribution(
+                            member_id=member.id,
+                            cause_id=cause.id,
+                            amount=amount,
+                            payment_method="mpesa",
+                            transaction_ref=receipt,
+                        ))
+                        await db.commit()
+
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+    except Exception as e:
+        return {"ResultCode": 1, "ResultDesc": str(e)}
 
 
 # ── Viewer role guard middleware ──
