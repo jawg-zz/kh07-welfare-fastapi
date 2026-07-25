@@ -1222,7 +1222,7 @@ async def mpesa_stk_push(
             await log_transaction(db, checkout_id, merchant_id, member_id, cause_id, amount, phone, account_ref)
 
             return HTMLResponse(f"""
-            <div class="mpesa-status" id="mpesa-flow-{checkout_id}" data-retry-after="2">
+            <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
                 <div class="status-step done">
                     <div class="step-icon"><i class="fas fa-check-circle"></i></div>
                     <div class="step-content">
@@ -1236,17 +1236,17 @@ async def mpesa_stk_push(
                         <div class="step-title">Check Your Phone</div>
                         <div class="step-desc">Enter your M-Pesa PIN to pay <strong>KES {amount:,.0f}</strong></div>
                         <div class="mt-2">
-                            <div class="progress" style="height:4px">
+                            <div class="progress" style="height:4px;background:var(--border)">
                                 <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                     id="progress-bar-{checkout_id}" style="width:0%"></div>
+                                     id="progress-init-{checkout_id}" style="width:0%"></div>
                             </div>
                         </div>
                         <div class="mt-1 d-flex justify-content-between">
-                            <small class="text-muted" id="poll-status-{checkout_id}">Checking again in 2s</small>
+                            <small class="text-muted" id="poll-init-{checkout_id}">Checking in 2s</small>
                             <button class="btn btn-sm btn-outline-accent"
                                 hx-get="/mpesa/check/{checkout_id}?retry=1"
-                                hx-target="#mpesa-flow-{checkout_id}"
-                                hx-swap="outerHTML">
+                                hx-target="#mpesa-flow-{checkout_id}" hx-swap="outerHTML"
+                                hx-trigger="load delay:2s">
                                 <i class="fas fa-sync me-1"></i>Check Now
                             </button>
                         </div>
@@ -1263,18 +1263,13 @@ async def mpesa_stk_push(
             <script>
                 (function() {{
                     var secs = 2;
-                    var bar = document.getElementById('progress-bar-{checkout_id}');
-                    var status = document.getElementById('poll-status-{checkout_id}');
-                    var interval = setInterval(function() {{
-                        secs--;
-                        if (secs < 0) secs = 0;
+                    var bar = document.getElementById('progress-init-{checkout_id}');
+                    var txt = document.getElementById('poll-init-{checkout_id}');
+                    var ival = setInterval(function() {{
+                        secs--; if (secs < 0) secs = 0;
                         if (bar) bar.style.width = ((2 - secs) / 2 * 100) + '%';
-                        if (status) status.textContent = 'Checking again in ' + secs + 's';
-                        if (secs <= 0) {{
-                            clearInterval(interval);
-                            var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                            if (btn) htmx.trigger(btn, 'click');
-                        }}
+                        if (txt) txt.textContent = 'Checking in ' + secs + 's';
+                        if (secs <= 0) clearInterval(ival);
                     }}, 1000);
                 }})();
             </script>""")
@@ -1406,18 +1401,16 @@ _RESULT_MESSAGES = {
 
 
 async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
-    """Shared M-Pesa status check with exponential backoff and Daraja 3.0 codes."""
+    """Shared M-Pesa status check with hx-trigger polling (no JS timeouts)."""
     from app.mpesa import query_status, update_transaction
 
     next_retry = retry + 1
     wait = _BACKOFF[retry] if retry < len(_BACKOFF) else _BACKOFF[-1]
-    has_more_retries = next_retry < len(_BACKOFF)
     is_final = next_retry >= len(_BACKOFF)
 
     try:
         result = await query_status(checkout_id)
     except Exception as e:
-        # Auth/config error (not retryable)
         return HTMLResponse(f"""
         <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
             <div class="status-step done">
@@ -1435,10 +1428,14 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
 
     status = result.get("status") or result.get("_status", "unknown")
 
+    # Build the auto-poll trigger only for non-terminal states
+    trigger_attr = ""
+    if status in ("pending", "retryable_error") and not is_final:
+        trigger_attr = f'hx-trigger="load delay:{wait}s"'
+
     # ── PENDING — still waiting for user to enter PIN ──
     if status == "pending":
         if is_final:
-            msg = "Payment request is still pending on M-Pesa. Check your phone or try again."
             return HTMLResponse(f"""
             <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
                 <div class="status-step done">
@@ -1449,7 +1446,7 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
                     <div class="step-icon"><i class="fas fa-clock" style="color:var(--warning)"></i></div>
                     <div class="step-content">
                         <div class="step-title">Still Pending</div>
-                        <div class="step-desc">{msg}</div>
+                        <div class="step-desc">Payment request is still pending. Check your phone or try again.</div>
                         <div class="mt-2">
                             <button class="btn btn-sm btn-outline-accent"
                                 hx-get="/mpesa/check/{checkout_id}?retry=0"
@@ -1457,7 +1454,6 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
                                 hx-swap="outerHTML">
                                 <i class="fas fa-sync me-1"></i>Check Again
                             </button>
-                            <small class="text-muted ms-2">Or wait for SMS confirmation</small>
                         </div>
                     </div>
                 </div>
@@ -1468,7 +1464,7 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
             </div>""")
         
         return HTMLResponse(f"""
-        <div class="mpesa-status" id="mpesa-flow-{checkout_id}" data-retry-after="{wait}">
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
             <div class="status-step done">
                 <div class="step-icon"><i class="fas fa-check-circle"></i></div>
                 <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
@@ -1479,17 +1475,16 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
                     <div class="step-title">Check Your Phone</div>
                     <div class="step-desc">Enter your M-Pesa PIN to complete payment</div>
                     <div class="mt-2">
-                        <div class="progress" style="height:4px">
+                        <div class="progress" style="height:4px;background:var(--border)">
                             <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                 id="progress-bar-{checkout_id}" style="width:0%"></div>
+                                 id="progress-{checkout_id}" style="width:0%"></div>
                         </div>
                     </div>
                     <div class="mt-1 d-flex justify-content-between">
-                        <small class="text-muted" id="poll-status-{checkout_id}">Checking again in {wait}s</small>
+                        <small class="text-muted" id="poll-txt-{checkout_id}">Checking in {wait}s</small>
                         <button class="btn btn-sm btn-outline-accent"
                             hx-get="/mpesa/check/{checkout_id}?retry={next_retry}"
-                            hx-target="#mpesa-flow-{checkout_id}"
-                            hx-swap="outerHTML">
+                            hx-target="#mpesa-flow-{checkout_id}" hx-swap="outerHTML" {trigger_attr}>
                             <i class="fas fa-sync me-1"></i>Check Now
                         </button>
                     </div>
@@ -1500,109 +1495,85 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
                 <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
             </div>
         </div>
+        <div id="poll-bar-{checkout_id}" style="display:none" data-wait="{wait}" data-checkout="{checkout_id}"></div>
         <script>
             (function() {{
                 var secs = {wait};
-                var bar = document.getElementById('progress-bar-{checkout_id}');
-                var status = document.getElementById('poll-status-{checkout_id}');
-                var interval = setInterval(function() {{
-                    secs--;
-                    if (secs < 0) secs = 0;
+                var bar = document.getElementById('progress-{checkout_id}');
+                var txt = document.getElementById('poll-txt-{checkout_id}');
+                var ival = setInterval(function() {{
+                    secs--; if (secs < 0) secs = 0;
                     if (bar) bar.style.width = (({wait} - secs) / {wait} * 100) + '%';
-                    if (status) status.textContent = 'Checking again in ' + secs + 's';
-                    if (secs <= 0) {{
-                        clearInterval(interval);
-                        var btn = document.querySelector('[hx-get*=\"{checkout_id}\"]');
-                        if (btn) htmx.trigger(btn, 'click');
-                    }}
+                    if (txt) txt.textContent = 'Checking in ' + secs + 's';
+                    if (secs <= 0) clearInterval(ival);
                 }}, 1000);
             }})();
-        </script>
-        """)
+        </script>""")
 
-    # ── RETRYABLE ERROR (network, parse, etc.) ──
+    # ── RETRYABLE ERROR ──
     if status == "retryable_error":
         err = result.get("error", "Unknown error")
         if is_final:
             return HTMLResponse(f"""
             <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
-                <div class="status-step done">
-                    <div class="step-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
-                </div>
+                <div class="status-step done"><div class="step-icon"><i class="fas fa-check-circle"></i></div><div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div></div>
                 <div class="status-step active">
                     <div class="step-icon"><i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i></div>
                     <div class="step-content">
                         <div class="step-title">Status Unknown</div>
-                        <div class="step-desc">Could not reach M-Pesa to check status. Your payment may still go through.</div>
+                        <div class="step-desc">Could not reach M-Pesa. Your payment may still go through.</div>
                         <div class="mt-2">
                             <button class="btn btn-sm btn-outline-accent"
                                 hx-get="/mpesa/check/{checkout_id}?retry=0"
-                                hx-target="#mpesa-flow-{checkout_id}"
-                                hx-swap="outerHTML">
+                                hx-target="#mpesa-flow-{checkout_id}" hx-swap="outerHTML">
                                 <i class="fas fa-sync me-1"></i>Check Again
                             </button>
                         </div>
                     </div>
                 </div>
-                <div class="status-step pending">
-                    <div class="step-icon"><i class="fas fa-coins"></i></div>
-                    <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
-                </div>
+                <div class="status-step pending"><div class="step-icon"><i class="fas fa-coins"></i></div><div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div></div>
             </div>""")
         
         return HTMLResponse(f"""
-        <div class="mpesa-status" id="mpesa-flow-{checkout_id}" data-retry-after="{wait}">
-            <div class="status-step done">
-                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
-                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
-            </div>
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+            <div class="status-step done"><div class="step-icon"><i class="fas fa-check-circle"></i></div><div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div></div>
             <div class="status-step active">
                 <div class="step-icon"><i class="fas fa-sync" style="color:var(--accent)"></i></div>
                 <div class="step-content">
                     <div class="step-title">Checking Status…</div>
                     <div class="step-desc small text-muted">{err}</div>
                     <div class="mt-2">
-                        <div class="progress" style="height:4px">
+                        <div class="progress" style="height:4px;background:var(--border)">
                             <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                 id="progress-bar-r-{checkout_id}" style="width:0%"></div>
+                                 id="progress-r-{checkout_id}" style="width:0%"></div>
                         </div>
                     </div>
                     <div class="mt-1 d-flex justify-content-between">
-                        <small class="text-muted" id="poll-status-r-{checkout_id}">Retrying in {wait}s</small>
+                        <small class="text-muted" id="poll-txt-r-{checkout_id}">Retrying in {wait}s</small>
                         <button class="btn btn-sm btn-outline-accent"
                             hx-get="/mpesa/check/{checkout_id}?retry={next_retry}"
-                            hx-target="#mpesa-flow-{checkout_id}"
-                            hx-swap="outerHTML">
+                            hx-target="#mpesa-flow-{checkout_id}" hx-swap="outerHTML" {trigger_attr}>
                             <i class="fas fa-sync me-1"></i>Retry
                         </button>
                     </div>
                 </div>
             </div>
-            <div class="status-step pending">
-                <div class="step-icon"><i class="fas fa-coins"></i></div>
-                <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
-            </div>
+            <div class="status-step pending"><div class="step-icon"><i class="fas fa-coins"></i></div><div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div></div>
         </div>
+        <div id="poll-bar-{checkout_id}" style="display:none" data-wait="{wait}"></div>
         <script>
             (function() {{
                 var secs = {wait};
-                var bar = document.getElementById('progress-bar-r-{checkout_id}');
-                var status = document.getElementById('poll-status-r-{checkout_id}');
-                var interval = setInterval(function() {{
-                    secs--;
-                    if (secs < 0) secs = 0;
+                var bar = document.getElementById('progress-r-{checkout_id}');
+                var txt = document.getElementById('poll-txt-r-{checkout_id}');
+                var ival = setInterval(function() {{
+                    secs--; if (secs < 0) secs = 0;
                     if (bar) bar.style.width = (({wait} - secs) / {wait} * 100) + '%';
-                    if (status) status.textContent = 'Retrying in ' + secs + 's';
-                    if (secs <= 0) {{
-                        clearInterval(interval);
-                        var btn = document.querySelector('[hx-get*=\"{checkout_id}\"]');
-                        if (btn) htmx.trigger(btn, 'click');
-                    }}
+                    if (txt) txt.textContent = 'Retrying in ' + secs + 's';
+                    if (secs <= 0) clearInterval(ival);
                 }}, 1000);
             }})();
-        </script>
-        """)
+        </script>""")
 
     # Terminal states: update DB then show result
     rc = str(result.get("ResultCode", ""))
@@ -1712,6 +1683,7 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
 @app.post("/api/mpesa/callback")
 async def mpesa_callback(request: Request):
     """M-Pesa API callback — receives payment confirmation and auto-reconciles."""
+    from app.database import async_session
     from app.mpesa import update_transaction, reconcile_from_callback
 
     try:
