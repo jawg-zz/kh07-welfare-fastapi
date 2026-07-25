@@ -135,7 +135,7 @@
                             <input type="tel" class="form-control phone-input" id="phone-display-{{ member.id }}"
                                    placeholder="712 345 678"
                                    value="{{ member.phone_number[4:] if member.phone_number.startswith('254') else member.phone_number[1:] if member.phone_number.startswith('0') else member.phone_number }}"
-                                   autocomplete="tel" maxlength="14"
+                                   autocomplete="tel" maxlength="14" required
                                    data-member-id="{{ member.id }}">
                             <input type="hidden" name="phone" class="phone-hidden" id="phone-hidden-{{ member.id }}"
                                    value="{{ member.phone_number if member.phone_number else '' }}">
