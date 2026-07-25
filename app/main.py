@@ -1222,7 +1222,7 @@ async def mpesa_stk_push(
             await log_transaction(db, checkout_id, merchant_id, member_id, cause_id, amount, phone, account_ref)
 
             return HTMLResponse(f"""
-            <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+            <div class="mpesa-status" id="mpesa-flow-{checkout_id}" data-retry-after="2">
                 <div class="status-step done">
                     <div class="step-icon"><i class="fas fa-check-circle"></i></div>
                     <div class="step-content">
@@ -1241,14 +1241,14 @@ async def mpesa_stk_push(
                                      id="progress-bar-{checkout_id}" style="width:0%"></div>
                             </div>
                         </div>
-                        <div class="mt-2" id="mpesa-check-area-{checkout_id}">
+                        <div class="mt-1 d-flex justify-content-between">
+                            <small class="text-muted" id="poll-status-{checkout_id}">Checking again in 2s</small>
                             <button class="btn btn-sm btn-outline-accent"
-                                hx-get="/mpesa/check/{checkout_id}"
+                                hx-get="/mpesa/check/{checkout_id}?retry=1"
                                 hx-target="#mpesa-flow-{checkout_id}"
                                 hx-swap="outerHTML">
-                                <i class="fas fa-sync me-1"></i>Check Status
+                                <i class="fas fa-sync me-1"></i>Check Now
                             </button>
-                            <small class="text-muted ms-2">Auto-checking in <span id="countdown-{checkout_id}">5</span>s</small>
                         </div>
                     </div>
                 </div>
@@ -1262,37 +1262,22 @@ async def mpesa_stk_push(
             </div>
             <script>
                 (function() {{
+                    var secs = 2;
                     var bar = document.getElementById('progress-bar-{checkout_id}');
-                    var countdown = document.getElementById('countdown-{checkout_id}');
-                    var secs = 0;
+                    var status = document.getElementById('poll-status-{checkout_id}');
                     var interval = setInterval(function() {{
-                        secs++;
-                        var pct = Math.min(secs / 30 * 100, 95);
-                        if (bar) bar.style.width = pct + '%';
-                        if (countdown) {{
-                            var left = Math.max(5 - secs, 0);
-                            countdown.textContent = left;
-                            if (left <= 0) {{
-                                countdown.textContent = 'now';
-                                var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                                if (btn) htmx.trigger(btn, 'click');
-                                clearInterval(interval);
-                            }}
+                        secs--;
+                        if (secs < 0) secs = 0;
+                        if (bar) bar.style.width = ((2 - secs) / 2 * 100) + '%';
+                        if (status) status.textContent = 'Checking again in ' + secs + 's';
+                        if (secs <= 0) {{
+                            clearInterval(interval);
+                            var btn = document.querySelector('[hx-get*="{checkout_id}"]');
+                            if (btn) htmx.trigger(btn, 'click');
                         }}
                     }}, 1000);
-                    // Also check at 15s if still pending
-                    setTimeout(function() {{
-                        var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                        if (btn) htmx.trigger(btn, 'click');
-                    }}, 15000);
-                    // Final check at 35s
-                    setTimeout(function() {{
-                        var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                        if (btn) htmx.trigger(btn, 'click');
-                    }}, 35000);
                 }})();
-            </script>
-            """)
+            </script>""")
         else:
             msg = result.get("ResponseDescription", "Unknown error")
             return HTMLResponse(f'<div class="alert alert-danger">M-Pesa request failed: {msg}</div>')
@@ -1392,137 +1377,336 @@ async def portal_mpesa_pay(
 async def mpesa_check_status(checkout_id: str, request: Request,
                               db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     """Check the status of an M-Pesa transaction (admin)."""
-    return await _do_mpesa_check(checkout_id, db)
+    retry = int(request.query_params.get("retry", "0"))
+    return await _do_mpesa_check(checkout_id, db, retry)
 
 
 @app.get("/self-service/mpesa-check/{checkout_id}", response_class=HTMLResponse)
 async def portal_mpesa_check(checkout_id: str, request: Request,
                               db: AsyncSession = Depends(get_db)):
     """Check the status of an M-Pesa transaction (self-service, no admin required)."""
-    return await _do_mpesa_check(checkout_id, db)
+    retry = int(request.query_params.get("retry", "0"))
+    return await _do_mpesa_check(checkout_id, db, retry)
 
 
-async def _do_mpesa_check(checkout_id: str, db: AsyncSession):
-    """Shared M-Pesa status check logic with step-tracker UI."""
+# Exponential backoff intervals (seconds): 2, 4, 8, 15, 30, 60 (cap)
+_BACKOFF = [2, 4, 8, 15, 30, 60]
+
+# Daraja 3.0 ResultCode → human-readable messages
+_RESULT_MESSAGES = {
+    "0": "Transaction completed successfully",
+    "1": "Insufficient balance — top up M-Pesa and try again",
+    "2": "Invalid till/paybill number — check M-Pesa settings",
+    "17": "M-Pesa internal error — please try again later",
+    "26": "Duplicate transaction — this payment was already processed",
+    "1032": "Transaction cancelled — you cancelled the request on your phone",
+    "1037": "STK Push timed out — you did not enter your PIN in time",
+    "2001": "Invalid transaction data — please try again",
+}
+
+
+async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
+    """Shared M-Pesa status check with exponential backoff and Daraja 3.0 codes."""
     from app.mpesa import query_status, update_transaction
+
+    next_retry = retry + 1
+    wait = _BACKOFF[retry] if retry < len(_BACKOFF) else _BACKOFF[-1]
+    has_more_retries = next_retry < len(_BACKOFF)
+    is_final = next_retry >= len(_BACKOFF)
 
     try:
         result = await query_status(checkout_id)
-        rc = result.get("ResultCode", "1")
-        if not isinstance(rc, str):
-            rc = str(rc)
-
-        # Update DB
-        # Amount is inside CallbackMetadata in query responses
-        items = result.get("CallbackMetadata", {}).get("Item", [])
-        amount_str = "?"
-        for item in items:
-            if item.get("Name") == "Amount":
-                amount_str = str(item.get("Value", "?"))
-        if rc == "0":
-            receipt = result.get("Receipt", "") or next(
-                (i.get("Value", "") for i in items
-                 if i.get("Name") == "MpesaReceiptNumber"), "")
-            await update_transaction(db, checkout_id, status="success", result_code="0",
-                                     result_desc="Completed", receipt=receipt)
-        elif rc == "1037":
-            await update_transaction(db, checkout_id, status="pending", result_code=rc,
-                                     result_desc="Still processing")
-
-        if rc == "0":
-            return HTMLResponse(f"""
-            <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
-                <div class="status-step done">
-                    <div class="step-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="step-content">
-                        <div class="step-title">Request Sent</div>
-                        <div class="step-done">✅</div>
-                    </div>
-                </div>
-                <div class="status-step done">
-                    <div class="step-icon"><i class="fas fa-mobile-alt"></i></div>
-                    <div class="step-content">
-                        <div class="step-title">PIN Entered</div>
-                        <div class="step-done">✅</div>
-                    </div>
-                </div>
-                <div class="status-step done">
-                    <div class="step-icon"><i class="fas fa-check-circle" style="color:var(--success)"></i></div>
-                    <div class="step-content">
-                        <div class="step-title" style="color:var(--success)">Payment Confirmed!</div>
-                        <div class="step-desc">
-                            <strong>KES {amount_str}</strong> received<br>
-                            <small class="text-muted">Receipt: {receipt or '—'}</small>
-                        </div>
-                    </div>
+    except Exception as e:
+        # Auth/config error (not retryable)
+        return HTMLResponse(f"""
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step failed">
+                <div class="step-icon"><i class="fas fa-times-circle" style="color:var(--danger)"></i></div>
+                <div class="step-content">
+                    <div class="step-title" style="color:var(--danger)">Configuration Error</div>
+                    <div class="step-desc">{str(e)}</div>
                 </div>
             </div>
-            """)
-        elif rc == "1037":
+        </div>""")
+
+    status = result.get("status") or result.get("_status", "unknown")
+
+    # ── PENDING — still waiting for user to enter PIN ──
+    if status == "pending":
+        if is_final:
+            msg = "Payment request is still pending on M-Pesa. Check your phone or try again."
             return HTMLResponse(f"""
             <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
                 <div class="status-step done">
                     <div class="step-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="step-content">
-                        <div class="step-title">Request Sent</div>
-                        <div class="step-done">✅</div>
-                    </div>
+                    <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
                 </div>
                 <div class="status-step active">
                     <div class="step-icon"><i class="fas fa-clock" style="color:var(--warning)"></i></div>
                     <div class="step-content">
-                        <div class="step-title">Waiting for PIN</div>
-                        <div class="step-desc">Check your phone and enter your M-Pesa PIN</div>
+                        <div class="step-title">Still Pending</div>
+                        <div class="step-desc">{msg}</div>
                         <div class="mt-2">
                             <button class="btn btn-sm btn-outline-accent"
-                                hx-get="/mpesa/check/{checkout_id}"
+                                hx-get="/mpesa/check/{checkout_id}?retry=0"
                                 hx-target="#mpesa-flow-{checkout_id}"
                                 hx-swap="outerHTML">
                                 <i class="fas fa-sync me-1"></i>Check Again
                             </button>
-                            <small class="text-muted ms-2">Auto-retrying…</small>
+                            <small class="text-muted ms-2">Or wait for SMS confirmation</small>
                         </div>
                     </div>
                 </div>
                 <div class="status-step pending">
                     <div class="step-icon"><i class="fas fa-coins"></i></div>
-                    <div class="step-content">
-                        <div class="step-title">Payment Confirmed</div>
-                        <div class="step-desc text-muted">Waiting…</div>
+                    <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
+                </div>
+            </div>""")
+        
+        return HTMLResponse(f"""
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}" data-retry-after="{wait}">
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step active">
+                <div class="step-icon"><i class="fas fa-mobile-alt"></i></div>
+                <div class="step-content">
+                    <div class="step-title">Check Your Phone</div>
+                    <div class="step-desc">Enter your M-Pesa PIN to complete payment</div>
+                    <div class="mt-2">
+                        <div class="progress" style="height:4px">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progress-bar-{checkout_id}" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="mt-1 d-flex justify-content-between">
+                        <small class="text-muted" id="poll-status-{checkout_id}">Checking again in {wait}s</small>
+                        <button class="btn btn-sm btn-outline-accent"
+                            hx-get="/mpesa/check/{checkout_id}?retry={next_retry}"
+                            hx-target="#mpesa-flow-{checkout_id}"
+                            hx-swap="outerHTML">
+                            <i class="fas fa-sync me-1"></i>Check Now
+                        </button>
                     </div>
                 </div>
             </div>
-            <script>
-                setTimeout(function() {{
-                    var btn = document.querySelector('[hx-get*="{checkout_id}"]');
-                    if (btn) htmx.trigger(btn, 'click');
-                }}, 10000);
-            </script>
-            """)
-        else:
-            await update_transaction(db, checkout_id, status="failed", result_code=rc,
-                                     result_desc=result.get("ResultDesc", "Failed"))
-            desc = result.get("ResultDesc", "Transaction failed")
+            <div class="status-step pending">
+                <div class="step-icon"><i class="fas fa-coins"></i></div>
+                <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
+            </div>
+        </div>
+        <script>
+            (function() {{
+                var secs = {wait};
+                var bar = document.getElementById('progress-bar-{checkout_id}');
+                var status = document.getElementById('poll-status-{checkout_id}');
+                var interval = setInterval(function() {{
+                    secs--;
+                    if (secs < 0) secs = 0;
+                    if (bar) bar.style.width = (({wait} - secs) / {wait} * 100) + '%';
+                    if (status) status.textContent = 'Checking again in ' + secs + 's';
+                    if (secs <= 0) {{
+                        clearInterval(interval);
+                        var btn = document.querySelector('[hx-get*=\"{checkout_id}\"]');
+                        if (btn) htmx.trigger(btn, 'click');
+                    }}
+                }}, 1000);
+            }})();
+        </script>
+        """)
+
+    # ── RETRYABLE ERROR (network, parse, etc.) ──
+    if status == "retryable_error":
+        err = result.get("error", "Unknown error")
+        if is_final:
             return HTMLResponse(f"""
             <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
                 <div class="status-step done">
                     <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+                </div>
+                <div class="status-step active">
+                    <div class="step-icon"><i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i></div>
                     <div class="step-content">
-                        <div class="step-title">Request Sent</div>
-                        <div class="step-done">✅</div>
+                        <div class="step-title">Status Unknown</div>
+                        <div class="step-desc">Could not reach M-Pesa to check status. Your payment may still go through.</div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-accent"
+                                hx-get="/mpesa/check/{checkout_id}?retry=0"
+                                hx-target="#mpesa-flow-{checkout_id}"
+                                hx-swap="outerHTML">
+                                <i class="fas fa-sync me-1"></i>Check Again
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="status-step failed">
-                    <div class="step-icon"><i class="fas fa-times-circle" style="color:var(--danger)"></i></div>
-                    <div class="step-content">
-                        <div class="step-title" style="color:var(--danger)">Payment Failed</div>
-                        <div class="step-desc">{desc}</div>
+                <div class="status-step pending">
+                    <div class="step-icon"><i class="fas fa-coins"></i></div>
+                    <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
+                </div>
+            </div>""")
+        
+        return HTMLResponse(f"""
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}" data-retry-after="{wait}">
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step active">
+                <div class="step-icon"><i class="fas fa-sync" style="color:var(--accent)"></i></div>
+                <div class="step-content">
+                    <div class="step-title">Checking Status…</div>
+                    <div class="step-desc small text-muted">{err}</div>
+                    <div class="mt-2">
+                        <div class="progress" style="height:4px">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progress-bar-r-{checkout_id}" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="mt-1 d-flex justify-content-between">
+                        <small class="text-muted" id="poll-status-r-{checkout_id}">Retrying in {wait}s</small>
+                        <button class="btn btn-sm btn-outline-accent"
+                            hx-get="/mpesa/check/{checkout_id}?retry={next_retry}"
+                            hx-target="#mpesa-flow-{checkout_id}"
+                            hx-swap="outerHTML">
+                            <i class="fas fa-sync me-1"></i>Retry
+                        </button>
                     </div>
                 </div>
             </div>
-            """)
-    except Exception as e:
-        return HTMLResponse(f"""<div class="alert alert-danger mt-2">Check failed: {str(e)}</div>""")
+            <div class="status-step pending">
+                <div class="step-icon"><i class="fas fa-coins"></i></div>
+                <div class="step-content"><div class="step-title">Payment Confirmed</div><div class="step-desc text-muted">Waiting…</div></div>
+            </div>
+        </div>
+        <script>
+            (function() {{
+                var secs = {wait};
+                var bar = document.getElementById('progress-bar-r-{checkout_id}');
+                var status = document.getElementById('poll-status-r-{checkout_id}');
+                var interval = setInterval(function() {{
+                    secs--;
+                    if (secs < 0) secs = 0;
+                    if (bar) bar.style.width = (({wait} - secs) / {wait} * 100) + '%';
+                    if (status) status.textContent = 'Retrying in ' + secs + 's';
+                    if (secs <= 0) {{
+                        clearInterval(interval);
+                        var btn = document.querySelector('[hx-get*=\"{checkout_id}\"]');
+                        if (btn) htmx.trigger(btn, 'click');
+                    }}
+                }}, 1000);
+            }})();
+        </script>
+        """)
+
+    # Terminal states: update DB then show result
+    rc = str(result.get("ResultCode", ""))
+    desc = result.get("ResultDesc", "") or _RESULT_MESSAGES.get(rc, "Transaction failed")
+
+    if status == "completed":
+        # Extract receipt from CallbackMetadata
+        receipt = ""
+        items = result.get("CallbackMetadata", {}).get("Item", [])
+        for item in items:
+            if item.get("Name") == "MpesaReceiptNumber":
+                receipt = str(item.get("Value", ""))
+            elif item.get("Name") == "Amount" and not result.get("_amount"):
+                result["_amount"] = str(item.get("Value", "?"))
+        amount_str = result.get("_amount", result.get("Amount", "?"))
+        await update_transaction(db, checkout_id, status="success", result_code=rc,
+                                 result_desc=desc, receipt=receipt)
+        return HTMLResponse(f"""
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-mobile-alt"></i></div>
+                <div class="step-content"><div class="step-title">PIN Entered</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle" style="color:var(--success)"></i></div>
+                <div class="step-content">
+                    <div class="step-title" style="color:var(--success)">Payment Confirmed!</div>
+                    <div class="step-desc">
+                        <strong>KES {amount_str}</strong> received<br>
+                        <small class="text-muted">Receipt: {receipt or '—'}</small>
+                    </div>
+                </div>
+            </div>
+        </div>""")
+
+    # ── CANCELLED (1032) ──
+    if status == "cancelled":
+        await update_transaction(db, checkout_id, status="cancelled", result_code=rc, result_desc=desc)
+        return HTMLResponse(f"""
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step failed">
+                <div class="step-icon"><i class="fas fa-ban" style="color:var(--warning)"></i></div>
+                <div class="step-content">
+                    <div class="step-title" style="color:var(--warning)">Payment Cancelled</div>
+                    <div class="step-desc">You cancelled the transaction on your phone. No amount was charged.</div>
+                </div>
+            </div>
+        </div>""")
+
+    # ── TIMEOUT (1037) ──
+    if status == "timeout":
+        await update_transaction(db, checkout_id, status="timeout", result_code=rc, result_desc=desc)
+        return HTMLResponse(f"""
+        <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+            <div class="status-step done">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+            </div>
+            <div class="status-step failed">
+                <div class="step-icon"><i class="fas fa-hourglass-end" style="color:var(--warning)"></i></div>
+                <div class="step-content">
+                    <div class="step-title" style="color:var(--warning)">Payment Timed Out</div>
+                    <div class="step-desc">You did not enter your M-Pesa PIN in time. Please try again.</div>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-accent"
+                            hx-post="/mpesa/stkpush" hx-target="#mpesa-result" hx-swap="innerHTML">
+                            <i class="fas fa-redo me-1"></i>Retry Payment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>""")
+
+    # ── FAILED (1, 2, 17, 26, 2001, etc.) ──
+    await update_transaction(db, checkout_id, status="failed", result_code=rc, result_desc=desc)
+    user_msg = _RESULT_MESSAGES.get(rc, f"M-Pesa Error (Code {rc}): {desc}")
+    return HTMLResponse(f"""
+    <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
+        <div class="status-step done">
+            <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="step-content"><div class="step-title">Request Sent</div><div class="step-done">✅</div></div>
+        </div>
+        <div class="status-step failed">
+            <div class="step-icon"><i class="fas fa-times-circle" style="color:var(--danger)"></i></div>
+            <div class="step-content">
+                <div class="step-title" style="color:var(--danger)">Payment Failed</div>
+                <div class="step-desc">{user_msg}</div>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-accent"
+                        hx-post="/mpesa/stkpush" hx-target="#mpesa-result" hx-swap="innerHTML">
+                        <i class="fas fa-redo me-1"></i>Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>""")
 
 
 @app.post("/api/mpesa/callback")

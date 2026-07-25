@@ -145,10 +145,26 @@ async def stk_push(phone: str, amount: float, account_ref: str,
 
 
 async def query_status(checkout_request_id: str, cfg: Optional[dict] = None) -> dict:
-    """Query the status of an STK Push."""
+    """Query the status of an STK Push.
+    
+    Daraja 3.0 query behavior:
+    - Pending (user hasn't acted): HTTP 500 'transaction does not Exist'
+    - Completed: HTTP 200 with ResultCode (0=success, other=failure)
+    - Network error: connection/read timeout
+    
+    Returns dict with at minimum {'status': ...} plus result fields.
+    Status values: 'pending', 'completed', 'failed', 'retryable_error'
+    """
     if cfg is None:
         cfg = await _get_config()
-    token = await get_access_token(cfg)
+    
+    try:
+        token = await get_access_token(cfg)
+    except MpesaError:
+        raise  # config missing — propagate up
+    except Exception as e:
+        return {"status": "retryable_error", "error": f"Auth failed: {str(e)}"}
+
     ts = _get_timestamp()
     pw = _generate_password(cfg["shortcode"], cfg["passkey"], ts)
 
@@ -159,16 +175,55 @@ async def query_status(checkout_request_id: str, cfg: Optional[dict] = None) -> 
         "CheckoutRequestID": checkout_request_id,
     }
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{cfg['api_base']}/mpesa/stkpushquery/v1/query",
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=15,
-        )
-        if resp.status_code != 200:
-            raise MpesaError(f"Query failed ({resp.status_code}): {resp.text[:200]}")
-        return resp.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{cfg['api_base']}/mpesa/stkpushquery/v1/query",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=15,
+            )
+    except httpx.TimeoutException:
+        return {"status": "retryable_error", "error": "Query timed out — network issue"}
+    except Exception as e:
+        return {"status": "retryable_error", "error": f"Request failed: {str(e)}"}
+
+    # HTTP 500 with "does not exist" = transaction still pending
+    if resp.status_code == 500:
+        body = resp.text[:300]
+        if "does not exist" in body.lower() or "does not Exist" in body:
+            return {"status": "pending", "ResultCode": None, "ResultDesc": "Waiting for user to enter PIN"}
+        # Other 500 = real error
+        return {"status": "retryable_error", "error": f"API error (500): {body}"}
+
+    if resp.status_code != 200:
+        return {"status": "retryable_error", "error": f"Unexpected HTTP {resp.status_code}"}
+
+    # HTTP 200 — parse result
+    try:
+        data = resp.json()
+    except Exception:
+        return {"status": "retryable_error", "error": "Invalid JSON response"}
+
+    rc = data.get("ResultCode")
+    if rc is None:
+        return {"status": "retryable_error", "error": "Missing ResultCode in response"}
+
+    # Determine status from Daraja 3.0 ResultCode
+    rc_str = str(rc)
+    
+    # Map Daraja 3.0 result codes to our status
+    if rc_str == "0":
+        data["_status"] = "completed"
+    elif rc_str == "1032":
+        data["_status"] = "cancelled"     # User cancelled on phone
+    elif rc_str == "1037":
+        data["_status"] = "timeout"       # STK Push timed out
+    else:
+        data["_status"] = "failed"        # 1, 2, 17, 26, 2001, etc.
+    
+    data["ResultCode"] = rc_str
+    return data
 
 
 # ── DB transaction logging ──
