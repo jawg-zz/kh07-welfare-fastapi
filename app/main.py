@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, String, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -526,6 +526,12 @@ async def export_excel(request: Request, db: AsyncSession = Depends(get_db), use
 async def contributions_filtered(request: Request, db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause_id = request.query_params.get("cause_id", "")
     month = request.query_params.get("month", "")
+    year = request.query_params.get("year", "")
+    method = request.query_params.get("method", "")
+    q_text = request.query_params.get("q", "").strip()
+    amt_min = request.query_params.get("amount_min", "")
+    amt_max = request.query_params.get("amount_max", "")
+    
     q = select(Contribution).options(selectinload(Contribution.member), selectinload(Contribution.cause))
     
     if cause_id and cause_id.isdigit():
@@ -533,6 +539,18 @@ async def contributions_filtered(request: Request, db: AsyncSession = Depends(ge
     if month and month.isdigit():
         from sqlalchemy import extract
         q = q.where(extract("month", Contribution.date_paid) == int(month))
+    if year and year.isdigit():
+        from sqlalchemy import extract
+        q = q.where(extract("year", Contribution.date_paid) == int(year))
+    if method:
+        q = q.where(Contribution.payment_method == method)
+    if q_text:
+        pattern = f"%{q_text}%"
+        q = q.join(Contribution.member).where(Member.name.ilike(pattern) | Member.member_number.cast(String).ilike(pattern))
+    if amt_min and amt_min.replace(".", "").isdigit():
+        q = q.where(Contribution.amount >= float(amt_min))
+    if amt_max and amt_max.replace(".", "").isdigit():
+        q = q.where(Contribution.amount <= float(amt_max))
     
     q = q.order_by(desc(Contribution.date_paid)).limit(200)
     result = await db.execute(q)
