@@ -1213,7 +1213,7 @@ async def mpesa_stk_push(
         account_ref = f"KH{member.member_number}"
         result = await stk_push(phone=phone, amount=amount, account_ref=account_ref)
 
-        code = result.get("ResponseCode", "1")
+        code = str(result.get("ResponseCode", "1"))
         if code == "0":
             checkout_id = result.get("CheckoutRequestID", "")
             merchant_id = result.get("MerchantRequestID", "")
@@ -1326,7 +1326,7 @@ async def portal_mpesa_pay(
         account_ref = f"KH{member.member_number}"
         result = await stk_push(phone=phone, amount=amount, account_ref=account_ref)
 
-        code = result.get("ResponseCode", "1")
+        code = str(result.get("ResponseCode", "1"))
         if code == "0":
             checkout_id = result.get("CheckoutRequestID", "")
             merchant_id = result.get("MerchantRequestID", "")
@@ -1409,12 +1409,19 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession):
     try:
         result = await query_status(checkout_id)
         rc = result.get("ResultCode", "1")
+        if not isinstance(rc, str):
+            rc = str(rc)
 
         # Update DB
-        amount_str = result.get("Amount", "?")
+        # Amount is inside CallbackMetadata in query responses
+        items = result.get("CallbackMetadata", {}).get("Item", [])
+        amount_str = "?"
+        for item in items:
+            if item.get("Name") == "Amount":
+                amount_str = str(item.get("Value", "?"))
         if rc == "0":
             receipt = result.get("Receipt", "") or next(
-                (i.get("Value", "") for i in result.get("CallbackMetadata", {}).get("Item", [])
+                (i.get("Value", "") for i in items
                  if i.get("Name") == "MpesaReceiptNumber"), "")
             await update_transaction(db, checkout_id, status="success", result_code="0",
                                      result_desc="Completed", receipt=receipt)
