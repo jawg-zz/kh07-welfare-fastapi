@@ -3,7 +3,17 @@ name: Build and publish Docker image
 on:
   push:
     branches: [main]
+    # Skip docs-only changes
+    paths-ignore:
+      - '**.md'
+      - '.env.example'
+      - 'LICENSE'
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Also trigger deploy to Dokploy after build?'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +29,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write   # for provenance
 
     steps:
       - name: Checkout
@@ -49,8 +60,14 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.title=KH07 Welfare
+            org.opencontainers.image.description=KH07 Alumni Welfare Management System
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -60,31 +77,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Output digest so we can reference it later
+          outputs: type=image,push-by-digest=false,name-target=true
 
-      - name: Deploy to Dokploy
-        env:
-          DOKPLOY_KEY: ${{ secrets.DOKPLOY_API_KEY }}
-          DOKPLOY_URL: "https://main.spidmax.win"
-          APP_ID: "nyvKlnj35EDHGet4AnxKJ"
+      - name: Image digest
         run: |
-          # Stop, set image, deploy, start
-          curl -s -X POST "$DOKPLOY_URL/api/trpc/application.stop?batch=1" \
-            -H "x-api-key: $DOKPLOY_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\"}}}" > /dev/null
-          sleep 5
-          echo "Deploying..."
-          curl -s -X POST "$DOKPLOY_URL/api/trpc/application.deploy?batch=1" \
-            -H "x-api-key: $DOKPLOY_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\",\"cleanCache\":true}}}" > /dev/null
-          echo "Waiting 120s for image pull..."
-          sleep 120
-          echo "Starting..."
-          curl -s -X POST "$DOKPLOY_URL/api/trpc/application.start?batch=1" \
-            -H "x-api-key: $DOKPLOY_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"0\":{\"json\":{\"applicationId\":\"$APP_ID\"}}}" > /dev/null
-          echo "Waiting 90s for container startup..."
-          sleep 90
-          echo "Deploy complete"
+          echo "## 📦 Image built and pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | Digest |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| \`latest\` | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| \`sha-${{ github.sha }}\` | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+
+      # Notify Hermes that build is done (optional — Hermes polls CI status anyway)
+      - name: Notify deploy-ready (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
+        run: |
+          echo "🔔 Deploy requested — trigger externally via Hermes cron or manual"
