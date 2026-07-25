@@ -65,7 +65,7 @@ jobs:
         env:
           DOKPLOY_KEY: ${{ secrets.DOKPLOY_API_KEY }}
           DOKPLOY_URL: "https://main.spidmax.win"
-          APP_ID: "SiE7JonqrO0FV0kbQF1xv"
+          APP_ID: "nyvKlnj35EDHGet4AnxKJ"
         run: |
           # Stop, set image, deploy, start
           curl -s -X POST "$DOKPLOY_URL/api/trpc/application.stop?batch=1" \
