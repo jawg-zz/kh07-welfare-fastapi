@@ -134,6 +134,50 @@
             </div>
             {% endif %}
 
+            <!-- ── M-Pesa Payment (Self-Service) ── -->
+            {% if causes %}
+            <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-mobile-alt" style="color:var(--accent)"></i>Make a Payment</div>
+                <div class="card-body">
+                    <form hx-post="/self-service/mpesa-pay" hx-target="#portal-mpesa-result" hx-swap="innerHTML"
+                          hx-indicator="#portal-mpesa-spinner">
+                        <input type="hidden" name="member_id" value="{{ member.id }}">
+                        <div class="mb-2">
+                            <label class="form-label small">Cause</label>
+                            <select name="cause_id" class="form-select form-select-sm" required>
+                                {% for cause in causes %}
+                                <option value="{{ cause.id }}">{{ cause.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small">Amount (KES)</label>
+                                <input type="number" name="amount" class="form-control form-control-sm" step="1" min="1" placeholder="500" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Phone Number</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">+254</span>
+                                    <input type="tel" name="phone" class="form-control"
+                                           value="{{ member.phone_number[4:] if member.phone_number.startswith('254') else member.phone_number[1:] if member.phone_number.startswith('0') else member.phone_number }}"
+                                           placeholder="712345678" required maxlength="9">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-accent btn-sm w-100">
+                            <i class="fas fa-mobile-alt me-1"></i>Pay via M-Pesa
+                        </button>
+                        <div id="portal-mpesa-spinner" class="htmx-indicator text-center mt-2">
+                            <div class="spinner-border spinner-border-sm text-accent" role="status"></div>
+                            <small class="text-muted ms-1">Sending payment request…</small>
+                        </div>
+                    </form>
+                    <div id="portal-mpesa-result" class="mt-2"></div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- ── Quick Actions ── -->
             <div class="d-flex gap-2 justify-content-center mb-4">
                 <a href="/self-service/suggest-cause" class="btn btn-outline-accent btn-sm"><i class="fas fa-lightbulb me-1"></i>Suggest a Cause</a>

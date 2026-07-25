@@ -340,6 +340,25 @@
         .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
         .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: .3; }
 
+        /* ── M-Pesa Status Steps ── */
+        .mpesa-status { padding: .5rem 0; }
+        .status-step { display: flex; align-items: flex-start; gap: .75rem; padding: .6rem .75rem; margin-bottom: .5rem; border-radius: var(--radius-sm); background: var(--bg-nav); border: 1px solid var(--border-light); }
+        .status-step.done { opacity: .7; }
+        .status-step.active { background: var(--accent-bg); border-color: var(--accent); }
+        .status-step.failed { background: rgba(224,108,108,.08); border-color: rgba(224,108,108,.3); }
+        .status-step .step-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); }
+        .status-step.done .step-icon { color: var(--success); }
+        .status-step.active .step-icon { color: var(--accent); }
+        .status-step .step-content { flex: 1; min-width: 0; }
+        .status-step .step-title { font-weight: 600; font-size: .85rem; }
+        .status-step .step-desc { font-size: .8rem; color: var(--text); }
+        .status-step .step-done { font-size: .8rem; color: var(--success); }
+        .status-step.pending { opacity: .4; }
+
+        /* ── M-Pesa Amount Chips ── */
+        .amount-chip { border-radius: 20px !important; padding: .25rem .85rem !important; font-size: .8rem !important; font-weight: 600 !important; }
+        .amount-chip.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+
         /* ── Scrollbar ── */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-primary); }

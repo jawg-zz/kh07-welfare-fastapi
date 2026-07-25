@@ -58,7 +58,17 @@
         <div class="card mt-3">
             <div class="card-header"><i class="fas fa-mobile-alt" style="color:var(--accent)"></i>M-Pesa Payment</div>
             <div class="card-body">
-                <form hx-post="/mpesa/stkpush" hx-target="#mpesa-result" hx-swap="innerHTML">
+                <div class="mb-3">
+                    <label class="form-label small">Quick Amount</label>
+                    <div class="d-flex gap-1 flex-wrap" id="quick-amounts">
+                        <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="500">KES 500</button>
+                        <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="1000">KES 1,000</button>
+                        <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="2000">KES 2,000</button>
+                        <button type="button" class="btn btn-sm btn-outline-accent amount-chip" data-amount="5000">KES 5,000</button>
+                    </div>
+                </div>
+                <form hx-post="/mpesa/stkpush" hx-target="#mpesa-result" hx-swap="innerHTML"
+                      hx-indicator="#mpesa-spinner">
                     <input type="hidden" name="member_id" value="{{ member.id }}">
                     <div class="mb-2">
                         <label class="form-label small">Cause</label>
@@ -70,20 +80,41 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label small">Amount (KES)</label>
-                        <input type="number" name="amount" class="form-control form-control-sm" step="1" min="1" placeholder="e.g. 500" required>
+                        <input type="number" name="amount" id="mpesa-amount" class="form-control form-control-sm"
+                               step="1" min="1" placeholder="Enter amount" required>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small">Phone Number</label>
-                        <input type="tel" name="phone" class="form-control form-control-sm" 
-                               value="{{ member.phone_number }}" placeholder="0712345678" required>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">+254</span>
+                            <input type="tel" name="phone" class="form-control"
+                                   value="{{ member.phone_number[4:] if member.phone_number.startswith('254') else member.phone_number[1:] if member.phone_number.startswith('0') else member.phone_number }}"
+                                   placeholder="712345678" required maxlength="9">
+                        </div>
+                        <small class="text-muted">Enter number without +254 or 0</small>
                     </div>
                     <button type="submit" class="btn btn-accent btn-sm w-100">
-                        <i class="fas fa-mobile-alt me-1"></i>Pay via M-Pesa
+                        <i class="fas fa-mobile-alt me-1"></i>Send M-Pesa Request
                     </button>
+                    <div id="mpesa-spinner" class="htmx-indicator text-center mt-2">
+                        <div class="spinner-border spinner-border-sm text-accent" role="status"></div>
+                        <small class="text-muted ms-1">Sending payment request…</small>
+                    </div>
                 </form>
                 <div id="mpesa-result" class="mt-2"></div>
             </div>
         </div>
+        
+        {% if member.phone_number %}
+        <div class="card mt-3">
+            <div class="card-header"><i class="fas fa-history" style="color:var(--info)"></i>M-Pesa Payments</div>
+            <div class="card-body p-0" id="mpesa-member-history"
+                 hx-get="/alumni/{{ member.id }}/mpesa-transactions"
+                 hx-trigger="load">
+                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-muted" role="status"></div></div>
+            </div>
+        </div>
+        {% endif %}
     </div>
     
     <div class="col-md-8">
@@ -186,6 +217,15 @@
 
 {% block extra_js %}
 <script>
+// Quick amount chips for M-Pesa
+document.querySelectorAll('.amount-chip').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.amount-chip').forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        var amtInput = document.getElementById('mpesa-amount');
+        if (amtInput) amtInput.value = this.dataset.amount;
+    });
+});
 // HTMX: after successful form submission, refresh the contributions list
 document.body.addEventListener('htmx:afterRequest', function(evt) {
     if (evt.detail.target && evt.detail.target.id === 'contrib-list') {
