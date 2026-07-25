@@ -40,13 +40,26 @@ def _decode_session(token: str) -> tuple | None:
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using SHA-256."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password using PBKDF2-SHA256 with a random salt (more secure than raw SHA-256)."""
+    import secrets
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 600000)
+    return f"pbkdf2:sha256:600000:{salt}:{dk.hex()}"
 
 
-def verify_password(password: str, expected_hash: str) -> bool:
-    """Verify password against stored hash."""
-    return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest(), expected_hash)
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify password against stored hash. Supports legacy SHA-256 for migration."""
+    import secrets
+    if stored_hash.startswith("pbkdf2:"):
+        parts = stored_hash.split(":")
+        if len(parts) == 5 and parts[1] == "sha256":
+            salt = parts[3]
+            iterations = int(parts[2])
+            dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), iterations)
+            return hmac.compare_digest(dk.hex(), parts[4])
+        return False
+    # Legacy SHA-256 fallback for existing users
+    return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest(), stored_hash)
 
 def create_session(username: str, role: str = "admin") -> str:
     return _encode_session(username, role)

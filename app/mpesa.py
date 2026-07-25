@@ -281,10 +281,16 @@ async def reconcile_from_callback(session: AsyncSession, checkout_id: str,
     if not tx:
         return
 
-    # Update transaction record
+    # Guard: only reconcile if still pending (prevents race-condition duplicates)
+    if tx.status != "pending":
+        logger.info(f"Transaction {checkout_id} already reconciled (status={tx.status})")
+        return
+
+    # Mark as processing to block concurrent callbacks
     tx.status = "success"
     tx.receipt = receipt
     tx.result_code = "0"
+    await session.flush()  # persist status change so concurrent callbacks see it
 
     # Check if contribution was already recorded for this receipt
     existing = await session.execute(

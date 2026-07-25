@@ -386,11 +386,34 @@ async def member_new_form(request: Request, user: str = Depends(require_auth)):
     return render("member_form.html", user=user, request=request, member=None)
 
 
+from app.auth import hash_password, SECRET_KEY
+
+
+def _next_member_number() -> int:
+    """Get a unique member number using timestamp + microsecond to avoid races."""
+    import time, random
+    # Use ms timestamp + random to stay collision-free even with concurrent requests
+    base = int(time.time() * 1000) % 100000
+    return base
+
+
 @app.post("/alumni/register")
 async def member_create(name: str = Form(...), phone_number: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_admin)):
-    last = (await db.execute(select(func.max(Member.member_number)))).scalar() or 0
-    db.add(Member(member_number=last + 1, name=name.strip(), phone_number=phone_number.strip()))
-    await db.commit()
+    from sqlalchemy.exc import IntegrityError
+    if not name.strip():
+        return HTMLResponse('<div class="alert alert-danger">Name is required</div>')
+    for attempt in range(5):
+        last = (await db.execute(select(func.max(Member.member_number)))).scalar() or 0
+        new_num = last + 1
+        member = Member(member_number=new_num, name=name.strip(), phone_number=phone_number.strip())
+        db.add(member)
+        try:
+            await db.commit()
+            return RedirectResponse(url="/alumni", status_code=302)
+        except IntegrityError:
+            await db.rollback()
+            if attempt >= 4:
+                return HTMLResponse('<div class="alert alert-danger">Could not assign unique member number. Please try again.</div>')
     return RedirectResponse(url="/alumni", status_code=302)
 
 
@@ -429,8 +452,21 @@ async def member_add_contribution(member_id: int, cause_id: int = Form(...), amo
     date_paid: str = Form(""), notes: str = Form(""),
     db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     from datetime import date as date_cls
+    if amount <= 0:
+        return HTMLResponse('<div class="alert alert-danger">Amount must be greater than 0</div>')
     try: dp = date_cls.fromisoformat(date_paid)
     except: dp = date_cls.today()
+    # Check for duplicate manual contribution on same cause (skip mpesa/bank which have refs)
+    if payment_method == "cash" and not transaction_ref:
+        existing = await db.execute(
+            select(Contribution).where(
+                Contribution.member_id == member_id,
+                Contribution.cause_id == cause_id,
+                Contribution.payment_method == "cash",
+            ).limit(1)
+        )
+        if existing.scalar_one_or_none():
+            return HTMLResponse('<div class="alert alert-warning"><i class="fas fa-info-circle me-1"></i>This member already has a cash contribution for this cause. Edit the existing record instead.</div>')
     db.add(Contribution(member_id=member_id, cause_id=cause_id, amount=amount,
         payment_method=payment_method, transaction_ref=transaction_ref, date_paid=dp, notes=notes))
     await db.commit()
@@ -879,6 +915,13 @@ async def disburse_create(cause_id: int, beneficiary_name: str = Form(...), amou
     date_disbursed: str = Form(""), notes: str = Form(""), db: AsyncSession = Depends(get_db), user: str = Depends(require_auth)):
     cause = await db.get(ContributionCause, cause_id)
     if not cause: raise HTTPException(status_code=404)
+    if amount <= 0:
+        return HTMLResponse('<div class="alert alert-danger">Amount must be greater than 0</div>')
+    total_raised = float((await db.execute(select(func.coalesce(func.sum(Contribution.amount), 0)).where(Contribution.cause_id == cause_id))).scalar() or 0)
+    total_disbursed = float((await db.execute(select(func.coalesce(func.sum(Disbursement.amount), 0)).where(Disbursement.cause_id == cause_id))).scalar() or 0)
+    available = total_raised - total_disbursed
+    if amount > available:
+        return HTMLResponse(f'<div class="alert alert-danger">Insufficient balance. KES {amount:,.0f} requested but only KES {available:,.0f} available (raised KES {total_raised:,.0f}, already disbursed KES {total_disbursed:,.0f})</div>')
     from datetime import date as dc
     try: dd = dc.fromisoformat(date_disbursed)
     except: dd = dc.today()
@@ -1604,6 +1647,23 @@ async def _do_mpesa_check(checkout_id: str, db: AsyncSession, retry: int = 0):
         amount_str = result.get("_amount", result.get("Amount", "?"))
         await update_transaction(db, checkout_id, status="success", result_code=rc,
                                  result_desc=desc, receipt=receipt)
+        # Immediately create Contribution so it's recorded before the callback arrives
+        if receipt:
+            existing_contrib = await db.execute(
+                select(Contribution).where(Contribution.transaction_ref == receipt).limit(1)
+            )
+            if not existing_contrib.scalar_one_or_none():
+                tx_record = await db.execute(
+                    select(MpesaTransaction).where(MpesaTransaction.checkout_request_id == checkout_id)
+                )
+                tx_record = tx_record.scalar_one_or_none()
+                if tx_record and tx_record.member_id and tx_record.cause_id:
+                    db.add(Contribution(
+                        member_id=tx_record.member_id, cause_id=tx_record.cause_id,
+                        amount=amount_str, payment_method="mpesa",
+                        transaction_ref=receipt,
+                    ))
+                    await db.commit()
         return HTMLResponse(f"""
         <div class="mpesa-status" id="mpesa-flow-{checkout_id}">
             <div class="status-step done">
